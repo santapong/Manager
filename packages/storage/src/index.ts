@@ -1,1 +1,2 @@
-export const placeholder = "storage";
+export * from "./types";
+export * from "./noop-adapter";

@@ -11,6 +11,9 @@
     "clean": "rm -rf .turbo .next *.tsbuildinfo"
   },
   "dependencies": {
+    "@manager/auth": "workspace:^",
+    "@manager/db": "workspace:^",
+    "@manager/email": "workspace:^",
     "@manager/ui": "workspace:*",
     "next": "^15.1.0",
     "react": "^19.0.0",

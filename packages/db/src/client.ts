@@ -1,10 +1,8 @@
-import { neon, neonConfig } from "@neondatabase/serverless";
+import { neon } from "@neondatabase/serverless";
 import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
 import { drizzle as drizzleNode } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
-
-neonConfig.fetchConnectionCache = true;
 
 export type Database = ReturnType<typeof createNodeClient>;
 export type EdgeDatabase = ReturnType<typeof createEdgeClient>;

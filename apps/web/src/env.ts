@@ -15,7 +15,7 @@ const serverSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().optional(),
 
   RESEND_API_KEY: z.string().optional(),
-  EMAIL_FROM: z.string().email().default("Manager <noreply@example.com>"),
+  EMAIL_FROM: z.string().min(3).default("Manager <noreply@example.com>"),
 
   SENTRY_DSN: z.string().url().optional(),
   SENTRY_ENVIRONMENT: z.string().optional(),

@@ -8,16 +8,26 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "clean": "rm -rf .turbo .next *.tsbuildinfo"
   },
   "dependencies": {
+    "@manager/auth": "workspace:^",
+    "@manager/db": "workspace:^",
+    "@manager/email": "workspace:^",
+    "@manager/observability": "workspace:^",
     "@manager/ui": "workspace:*",
+    "@sentry/nextjs": "^10.53.1",
+    "drizzle-orm": "^0.45.2",
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@manager/config": "workspace:*",
+    "@playwright/test": "^1.60.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

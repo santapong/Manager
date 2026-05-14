@@ -301,6 +301,11 @@ Concurrency rules:
 
 The PM appends decisions here, newest first. Format: `YYYY-MM-DD — decision — reasoning`.
 
+- 2026-05-14 — Phase 0 shipped end-to-end as 10 stacked PRs (PRs #2–#11) — review-sized increments, each with its own typecheck/lint/build gate. See [`CHANGELOG.md`](./CHANGELOG.md) for landed-feature breakdown.
+- 2026-05-14 — `typedRoutes` disabled in `next.config.ts` — query-string redirects don't satisfy the literal-route type checker. Re-enable when route surface stabilises.
+- 2026-05-14 — `pnpm.overrides` pins `drizzle-orm` to a single resolution — Sentry's OpenTelemetry peer would otherwise duplicate the package and break typecheck.
+- 2026-05-14 — `/api/dev/login` ships behind `DEV_LOGIN_TOKEN` + `NODE_ENV != production` — necessary to skip magic-link in Playwright; returns 404 when unconfigured so it isn't discoverable.
+- 2026-05-14 — Tailwind 3 chosen over 4 — v3 is mature with the Next 15 toolchain; revisit on a focused upgrade PR after Phase 1.
 - 2026-05-14 — AI features deferred until Phase 4+ — no AI SDKs, prompts, or envs land in Phase 0–3.
 - 2026-05-14 — Self-host: architectural commitment, no public date — no docker/k8s assets in Phase 0; vendor ports enforced via ESLint.
 - 2026-05-14 — Revenue model: free cloud + paid self-host — every vendor with a non-portable API sits behind an internal port from Phase 0.
@@ -329,3 +334,116 @@ Self-host is the paid tier, which means every vendor whose API is non-portable m
 **Enforcement:** ESLint `no-restricted-imports` rule forbids direct imports of `@vercel/blob`, `ably`, `pusher`, `resend` outside their adapter files. Adapter files are the only allow-listed importers.
 
 **Known coupling:** the Neon HTTP edge driver is faster than `pg` on Vercel Edge but unavailable on self-host. Document this — edge reads become Node reads on self-host. Acceptable trade for now.
+
+---
+
+## 8. Phase 0 — what shipped
+
+Phase 0 closed across 10 stacked PRs (#2–#11). Reviewable in either direction; can be flattened into one merge to `main`.
+
+| PR | Title | Highlights |
+|---|---|---|
+| #2 | Turborepo scaffold + CI baseline | pnpm workspaces, Turborepo, Next.js 15, Tailwind 3, ESLint guard for vendor SDKs, GH Actions CI |
+| #3 | Vercel + Zod-validated env | `apps/web/src/env.ts`, `.env.example`, `vercel.json` (HSTS + security headers) |
+| #4 | DB + Drizzle + RLS | Multi-tenant schema, `withWorkspace()` helper, RLS policies, isolation Vitest |
+| #5 | Auth (magic-link + GitHub OAuth) | `AuthService` port, Resend + console adapters, `__Host-session` cookie, OAuth state CSRF |
+| #6 | Workspaces + onboarding | `/welcome`, `[workspace]` layout, `withActiveWorkspace`, middleware, 404-not-403 isolation |
+| #7 | Task CRUD | Project create, list/CRUD tasks, optimistic UI via `useOptimistic`, status cycle |
+| #8 | Health + Sentry + logging | `/api/health` (edge), `/api/health/deep` (bearer), Sentry 3-runtime config, `@manager/observability` JSON logger |
+| #9 | Playwright E2E | Smoke + RLS specs, `/api/dev/login` test shortcut, `.github/workflows/e2e.yml` |
+| #10 | Vendor-port stubs | `RealtimeService`, `BlobService`, `SearchService` types + adapters; ADR 0001 |
+| #11 | PLAN + registry sync | This PR — decision log, agent registry, Phase 1 plan |
+
+Phase 0 acceptance (signed-in user creates workspace → project → task with RLS enforced and Sentry capturing errors) is met by PRs #5–#9.
+
+---
+
+## 9. Phase 1+ skeleton — landing zones
+
+Phase 1–4 features have empty folders + planning notes scaffolded in this PR so the PM knows where each future PR should land. The folders contain `.gitkeep` files and short `PLAN.md` notes describing the feature shape, target PRs, and the agent who owns it.
+
+### Phase 1 (MVP — kanban, comments, search)
+
+```
+apps/web/app/[workspace]/projects/[projectKey]/
+├─ board/            # Kanban (frontend-engineer + backend-engineer)
+└─ list/             # Already shipped in PR #7
+
+apps/web/app/[workspace]/
+├─ inbox/            # Notifications inbox (Phase 1 mid)
+└─ search/           # Cross-project search results
+
+packages/db/src/queries/
+├─ comments.ts       # Database-engineer; depends on `comments` table migration
+└─ activity.ts       # Activity feed reads
+
+apps/web/src/lib/realtime/
+└─ ably-client.ts    # Wraps RealtimeService port for client subscriptions
+```
+
+### Phase 2 (Scrum + GitHub integration)
+
+```
+apps/web/app/[workspace]/sprints/
+├─ page.tsx          # Sprint list
+└─ [sprintId]/page.tsx
+
+packages/db/src/queries/sprints.ts
+packages/integrations/                # New package, recruit `integrations-engineer`
+├─ github/
+│  ├─ oauth.ts
+│  ├─ pr-link.ts
+│  └─ webhook-handler.ts
+└─ types.ts
+
+apps/web/app/api/webhooks/
+├─ outbound/         # HMAC-signed
+└─ github/route.ts   # Inbound from GitHub
+```
+
+### Phase 3 (Gantt + reports + custom fields)
+
+```
+apps/web/app/[workspace]/roadmap/
+└─ page.tsx          # Quarterly Gantt + dependencies
+
+apps/web/app/[workspace]/reports/
+├─ cycle-time/page.tsx
+├─ throughput/page.tsx
+└─ velocity/page.tsx
+
+packages/db/src/queries/
+├─ dependencies.ts   # Cycle detection
+└─ custom-fields.ts
+
+packages/charts/                      # Phase 3 — small chart wrappers around Recharts
+```
+
+### Phase 4 (Docs + presence + AI assist)
+
+```
+apps/web/app/[workspace]/docs/
+├─ page.tsx
+└─ [docId]/page.tsx
+
+packages/docs/                        # CRDT-backed editor wrapper (Yjs)
+└─ src/
+
+packages/ai/                          # Gated by AI feature flag (off by default)
+└─ src/                               # Anthropic adapter only after Phase 4 starts
+```
+
+### Phase 1 PR sequence (first cut — refine before kickoff)
+
+1. **P1-01** — Sprint table + relations in DB (`database-engineer`)
+2. **P1-02** — Comments table + `comments.ts` queries + mentions parser
+3. **P1-03** — Kanban board view with drag/drop (uses [`dnd-kit`](https://dndkit.com/)) — optimistic position updates
+4. **P1-04** — Notifications model + inbox UI
+5. **P1-05** — Realtime: Ably adapter (`realtime-engineer` recruit) wired to `RealtimeService` port
+6. **P1-06** — Mentions trigger notifications via Inngest job
+7. **P1-07** — Cmd-K command palette (frontend-engineer)
+8. **P1-08** — Postgres FTS indexer trigger + real `search()` implementation
+9. **P1-09** — Inbox: mark-as-read + filtering
+10. **P1-10** — Background job package wiring (`@manager/jobs` first real use)
+
+Refine in the kick-off PM session for Phase 1 — this list is the starting point, not a contract.

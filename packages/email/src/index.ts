@@ -1,1 +1,3 @@
-export const placeholder = "email";
+export * from "./types";
+export * from "./resend-adapter";
+export * from "./console-adapter";

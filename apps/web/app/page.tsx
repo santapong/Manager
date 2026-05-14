@@ -1,14 +1,14 @@
-import { Badge } from "@manager/ui";
+import { redirect } from "next/navigation";
+import { auth } from "@/src/lib/auth";
+import { getActiveWorkspace } from "@/src/lib/workspace-context";
 
-export default function HomePage() {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-4 px-6">
-      <Badge>Phase 0</Badge>
-      <h1 className="text-3xl font-semibold tracking-tight">Manager</h1>
-      <p className="text-gray-600">
-        Project management for developers. The app is scaffolded; auth, workspaces, and tasks land
-        in subsequent PRs.
-      </p>
-    </main>
-  );
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const svc = await auth();
+  const session = await svc.getSession();
+  if (!session) redirect("/sign-in");
+  const ws = await getActiveWorkspace();
+  if (!ws) redirect("/welcome");
+  redirect(`/${ws.slug}`);
 }

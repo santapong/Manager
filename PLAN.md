@@ -153,11 +153,13 @@ Rules:
 └──────────┘  └─────────┘  └──────┬───────┘
                                   │
                                   ▼
-              ┌────────────────────────────────────┐
-              │ Outbound: Resend (email), Sentry,  │
-              │ Axiom (logs), Vercel Blob (files), │
-              │ GitHub API (integrations)          │
-              └────────────────────────────────────┘
+              ┌─────────────────────────────────────────────────┐
+              │ Outbound (all behind ports — see §7):           │
+              │   Email: Resend  /  SMTP (self-host)            │
+              │   Files: Vercel Blob  /  S3 · R2 (self-host)    │
+              │   Realtime: Ably  /  Soketi (self-host)         │
+              │   Plus: Sentry, Axiom, GitHub API (no port)     │
+              └─────────────────────────────────────────────────┘
 ```
 
 ### 4.2 Framework & language choices
@@ -173,12 +175,12 @@ Rules:
 | DB | Postgres on Neon | Serverless-native, branching for previews, scale-to-zero. |
 | Cache / rate-limit | Upstash Redis | Pay-per-request, HTTP-callable from edge. |
 | Background jobs | Inngest | Function-as-step model, retries, fan-out, scheduled jobs without a worker fleet. |
-| Realtime | Ably (or Pusher) | Managed WS + presence + history; self-host (Soketi) later if cost justifies. |
-| Search | Postgres FTS (phase 1) → Typesense (phase 2+) | Don't add infra until FTS hits a wall. |
-| Auth | Better-Auth (or NextAuth v5) | Self-owned user table; supports email magic link, OAuth, SSO later. |
-| Email | Resend | Cheap, good DX, React Email templates. |
-| Files | Vercel Blob | One-click; swap for R2 if egress matters. |
-| Observability | Sentry + Axiom | Errors + structured logs; cheap at our scale. |
+| Realtime | `RealtimeService` port — Ably adapter on cloud, **Soketi** adapter on self-host | Pusher-compatible wire format keeps both adapters interchangeable. |
+| Search | `SearchService` port — Postgres FTS adapter both on cloud and self-host (Typesense optional later) | Don't add infra until FTS hits a wall. |
+| Auth | `AuthService` port — Better-Auth (or NextAuth v5) over our own Drizzle tables | Self-owned user table; auth library is replaceable, user data is ours. |
+| Email | `EmailService` port — Resend adapter on cloud, SMTP (nodemailer) on self-host | Cheap, good DX, React Email templates; SMTP is the lingua franca for self-host. |
+| Files | `BlobService` port — Vercel Blob adapter on cloud, S3/R2 adapter on self-host | Vercel Blob is Vercel-only; abstracting it from day one is the price of the paid self-host tier. |
+| Observability | Sentry + Axiom (no port — replace via OpenTelemetry later) | Errors + structured logs; cheap at our scale. |
 
 ### 4.3 Repo layout (Turborepo monorepo)
 
@@ -280,17 +282,18 @@ Concurrency rules:
 | Risk | Mitigation |
 |---|---|
 | Vercel function timeout on heavy operations | Inngest for anything > 5s; design APIs to be paginated and chunked. |
-| Realtime cost spikes with Ably | Cap free workspaces; monitor msg/user; have Soketi self-host plan ready. |
+| Realtime cost spikes with Ably | Cap free workspaces; monitor msg/user; Soketi self-host adapter is the same `RealtimeService` interface (§7). |
+| Vendor coupling sneaks past the port | ESLint `no-restricted-imports` rule forbids direct vendor imports outside adapter files (§7); runs on every PR. |
 | ORM choice lock-in | Drizzle is thin; queries are mostly SQL — switching cost is bounded. |
 | Multi-tenant data leak | RLS + automated isolation tests in CI; never bypass RLS in app code without a code-review gate. |
 | Scope creep (ClickUp parity) | Phases are gated by dogfooding, not by checklist completeness. |
 
-**Open questions for the user (decide before phase 1 starts):**
+**Resolved questions** (see Decision log §6 for full reasoning):
 
-1. Pricing/plan model — free tier limits? per-seat vs flat?
-2. Target team size for v1 — 5-person startups, or 50-person eng orgs? (affects perf budgets and admin surface)
-3. Self-host commitment — do we promise it publicly? (affects vendor choices like Ably vs Soketi from day one)
-4. AI assist — Anthropic only, or BYO-key for customers?
+1. ~~Pricing/plan model~~ — **Free cloud + paid self-host tier.** Revenue comes from self-host.
+2. ~~Target team size for v1~~ — **3–15 person dev teams.** Perf budgets in §4.8 stand.
+3. ~~Self-host commitment~~ — **Design for it from day one, no public date.** Vendor ports are mandatory (see §7).
+4. ~~AI assist~~ — **Deferred until Phase 4 or later.** No AI SDKs land before then.
 
 ---
 
@@ -298,7 +301,31 @@ Concurrency rules:
 
 The PM appends decisions here, newest first. Format: `YYYY-MM-DD — decision — reasoning`.
 
+- 2026-05-14 — AI features deferred until Phase 4+ — no AI SDKs, prompts, or envs land in Phase 0–3.
+- 2026-05-14 — Self-host: architectural commitment, no public date — no docker/k8s assets in Phase 0; vendor ports enforced via ESLint.
+- 2026-05-14 — Revenue model: free cloud + paid self-host — every vendor with a non-portable API sits behind an internal port from Phase 0.
+- 2026-05-14 — Target users: dev teams of 3–15 — drives flat permission model and Phase 0 perf budgets.
 - 2026-05-14 — Use Drizzle over Prisma — edge runtime support and no migrate-drift surprises.
 - 2026-05-14 — Use Inngest for background work — avoids running a separate worker fleet.
 - 2026-05-14 — Deploy on Vercel for v1 — fastest path; revisit if egress/realtime cost hurts.
 - 2026-05-14 — All agents on Opus — user preference; revisit if cost becomes a constraint.
+
+---
+
+## 7. Vendor ports
+
+Self-host is the paid tier, which means every vendor whose API is non-portable must sit behind an internal interface from day one. We abstract only where the swap is a real product feature — open standards (Postgres wire, SMTP, OAuth, OpenTelemetry) don't need a wrapper.
+
+| Boundary | Port | Cloud impl | Self-host impl | Phase 0 deliverable |
+|---|---|---|---|---|
+| Realtime | `RealtimeService.{publish, authorize, presenceEnter, presenceLeave}` | Ably (Phase 1) | Soketi (Pusher-compatible) | Types + no-op adapter |
+| Files | `BlobService.{putSignedUrl, getSignedUrl, delete, head}` — never expose vendor URLs to callers | Vercel Blob (Phase 1) | S3 / Cloudflare R2 | Types + noop |
+| Email | `EmailService.{send({to, subject, react\|html\|text, tags})}` | Resend | SMTP (nodemailer) | Resend adapter ships in PR #5 |
+| Auth | `AuthService.{getSession, requireSession, signInMagicLink, signInOAuth, signOut}` backed by our Drizzle tables | Better-Auth (or NextAuth v5) | Same code; transport is via `EmailService` port | Adapter ships in PR #5 |
+| Search | `SearchService.{indexTask, removeTask, search}` | Postgres FTS (Phase 1) | Postgres FTS unchanged | Types only |
+
+**Not abstracted:** Postgres (use Drizzle + pg wire; Neon → any Postgres is a connection-string change); Inngest (deferred to Phase 1, will gain a `JobQueue` port when it lands); Sentry/Axiom (OpenTelemetry-compatible shims later).
+
+**Enforcement:** ESLint `no-restricted-imports` rule forbids direct imports of `@vercel/blob`, `ably`, `pusher`, `resend` outside their adapter files. Adapter files are the only allow-listed importers.
+
+**Known coupling:** the Neon HTTP edge driver is faster than `pg` on Vercel Edge but unavailable on self-host. Document this — edge reads become Node reads on self-host. Acceptable trade for now.

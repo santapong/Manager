@@ -2,7 +2,7 @@
   "extends": "@manager/config/tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "types": ["node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "test/**/*", "drizzle.config.ts", "vitest.config.ts"]
 }

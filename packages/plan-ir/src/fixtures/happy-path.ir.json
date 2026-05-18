@@ -1,0 +1,45 @@
+{
+  "planFormat": 1,
+  "project": {
+    "key": "PROJ",
+    "name": "Project Name",
+    "targetDate": "2026-09-30",
+    "tags": ["scrum", "q3"]
+  },
+  "milestones": [
+    { "name": "Beta launch", "targetDate": "2026-07-15" },
+    { "name": "GA", "targetDate": "2026-09-30" }
+  ],
+  "tasks": [
+    {
+      "key": "PROJ-1",
+      "title": "Set up auth",
+      "status": "todo",
+      "priority": "high",
+      "tags": ["backend"],
+      "milestone": "Beta launch",
+      "description": "Implement OAuth + session management.",
+      "subtasks": [
+        { "title": "Wire Google OAuth", "done": false },
+        { "title": "Add session middleware", "done": true }
+      ]
+    },
+    {
+      "key": "PROJ-2",
+      "title": "Build dashboard",
+      "status": "in_progress",
+      "priority": "medium",
+      "tags": ["frontend"],
+      "dependsOn": ["PROJ-1"],
+      "milestone": "Beta launch",
+      "description": "Top-level dashboard with project cards."
+    },
+    {
+      "key": "PROJ-3",
+      "title": "Polish onboarding",
+      "status": "backlog",
+      "priority": "low",
+      "milestone": "GA"
+    }
+  ]
+}

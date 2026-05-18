@@ -1,0 +1,39 @@
+{
+  "name": "@manager/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Model Context Protocol server for Manager — exposes Manager projects, tasks, milestones, and the plan importer as MCP tools.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./tools": "./src/tools/index.ts"
+  },
+  "bin": {
+    "manager-mcp": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "manifest.json",
+    "icon.svg"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node -e \"require('fs').chmodSync('dist/cli.js', 0o755)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "mcpb": "node scripts/build-mcpb.mjs",
+    "clean": "rm -rf .turbo dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@manager/plan-ir": "workspace:^",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@manager/config": "workspace:*",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.6"
+  }
+}

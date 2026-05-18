@@ -1,0 +1,61 @@
+name: MCP
+
+on:
+  push:
+    branches: [main]
+    tags: ["mcp-v*"]
+    paths:
+      - "packages/mcp/**"
+      - ".github/workflows/mcp.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/mcp/**"
+      - ".github/workflows/mcp.yml"
+
+concurrency:
+  group: mcp-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-mcpb:
+    name: build · test · package .mcpb
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck (mcp)
+        run: pnpm --filter @manager/mcp typecheck
+      - name: Test (mcp)
+        run: pnpm --filter @manager/mcp test
+      - name: Build (mcp)
+        run: pnpm --filter @manager/mcp build
+      - name: Package .mcpb
+        run: node packages/mcp/scripts/build-mcpb.mjs
+      - name: Locate artifact
+        id: mcpb
+        run: |
+          file=$(ls packages/mcp/dist/*.mcpb | head -n1)
+          echo "path=$file" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$file")" >> "$GITHUB_OUTPUT"
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.mcpb.outputs.name }}
+          path: ${{ steps.mcpb.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+      - name: Attach to release (on tag only)
+        if: startsWith(github.ref, 'refs/tags/mcp-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.mcpb.outputs.path }}

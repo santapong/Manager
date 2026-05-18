@@ -1,4 +1,4 @@
-import { integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { date, integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { workspaces } from "./workspaces";
 
@@ -12,6 +12,8 @@ export const projects = pgTable(
     key: text("key").notNull(),
     name: text("name").notNull(),
     nextTaskSeq: integer("next_task_seq").notNull().default(1),
+    startDate: date("start_date"),
+    targetDate: date("target_date"),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

@@ -17,6 +17,7 @@
     "@manager/db": "workspace:^",
     "@manager/email": "workspace:^",
     "@manager/observability": "workspace:^",
+    "@manager/plan-ir": "workspace:^",
     "@manager/ui": "workspace:*",
     "@sentry/nextjs": "^10.53.1",
     "drizzle-orm": "^0.45.2",

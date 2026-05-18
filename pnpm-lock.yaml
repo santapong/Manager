@@ -50,6 +50,9 @@ importers:
       '@manager/observability':
         specifier: workspace:^
         version: link:../../packages/observability
+      '@manager/plan-ir':
+        specifier: workspace:^
+        version: link:../../packages/plan-ir
       '@manager/ui':
         specifier: workspace:*
         version: link:../../packages/ui

@@ -11,6 +11,9 @@ The `project-manager` agent maintains this file. One line per agent. Order: most
 | backend-engineer | active | Server Actions, Route Handlers, business logic, validation, permissions. |
 | frontend-engineer | active | Next.js App Router, React Server Components, Tailwind, accessibility, state. |
 | qa-engineer | active | Playwright E2E, Vitest, test data, CI gating. |
+| product-lead | active | Feature scoping, user stories, acceptance criteria, arbitration when specialists disagree. |
+| docs-extraction-engineer | active | Parsers/serializers for Markdown/CSV/XLSX → canonical Plan IR; format specs and fixtures. |
+| integrations-engineer | active | MCP servers + .mcpb bundles, OAuth flows, webhooks, public API surface. |
 
 ## Recruited but not yet active
 
@@ -18,9 +21,7 @@ _(none — recruit on first need, then move to the active table above)_
 
 ## Anticipated for Phase 1+ (recruit on first task)
 
-- **product-lead** — feature scoping, user stories, acceptance criteria, prioritization.
 - **realtime-engineer** — presence, CRDT/OT for collaborative docs, WebSocket/SSE plumbing.
-- **integrations-engineer** — GitHub/GitLab, Slack, webhooks, OAuth flows for third-party APIs.
 - **ui-designer** — design tokens, motion, empty states, dark mode, illustration.
 
 ## Retired

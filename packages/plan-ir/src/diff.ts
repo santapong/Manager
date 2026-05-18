@@ -1,4 +1,4 @@
-import type { PlanIR, Task } from "./ir.js";
+import type { PlanIR, Task } from "./ir";
 
 /**
  * Current-state snapshot the importer needs to compute a dry-run diff.

@@ -13,7 +13,7 @@ import {
   type Project,
   type Subtask,
   type Task,
-} from "../ir.js";
+} from "../ir";
 
 /**
  * Parse a Markdown plan into the canonical IR.

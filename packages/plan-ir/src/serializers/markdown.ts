@@ -1,4 +1,4 @@
-import type { Milestone, PlanIR, Subtask, Task } from "../ir.js";
+import type { Milestone, PlanIR, Subtask, Task } from "../ir";
 
 /**
  * Serialize a PlanIR back to the canonical Markdown convention.

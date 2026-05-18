@@ -3,10 +3,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { parseMarkdown } from "../parsers/markdown.js";
-import { serializeMarkdown } from "../serializers/markdown.js";
-import { diffAgainstWorkspace } from "../diff.js";
-import type { PlanIR } from "../ir.js";
+import { parseMarkdown } from "../parsers/markdown";
+import { serializeMarkdown } from "../serializers/markdown";
+import { diffAgainstWorkspace } from "../diff";
+import type { PlanIR } from "../ir";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "..", "fixtures");

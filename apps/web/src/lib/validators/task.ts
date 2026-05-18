@@ -17,6 +17,7 @@ export const UpdateTaskSchema = z.object({
   description: z.string().max(10_000).optional().nullable(),
   status: TaskStatusEnum.optional(),
   priority: TaskPriorityEnum.optional(),
+  milestoneId: z.string().uuid().nullable().optional(),
 });
 
 export const DeleteTaskSchema = z.object({

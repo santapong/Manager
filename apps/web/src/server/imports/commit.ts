@@ -16,8 +16,12 @@ import { PlanIRSchema, type Diagnostic, type PlanIR } from "@manager/plan-ir";
 import type { CommitResult } from "./types";
 
 export interface CommitOptions {
-  /** Required: the user creating the import (used for `created_by` columns). */
-  userId: string;
+  /**
+   * The user creating the import (used for `created_by` columns). When
+   * `null`, the integration API path is being used (e.g. the MCP server
+   * calling with an API key) and there's no session user to attribute to.
+   */
+  userId: string | null;
 }
 
 /**

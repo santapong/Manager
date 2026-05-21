@@ -6,6 +6,7 @@ import { withActiveWorkspace } from "@/src/lib/workspace-context";
 import { commit } from "@/src/server/imports";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
 const BodySchema = z.object({ ir: PlanIRSchema });
 

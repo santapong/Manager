@@ -5,8 +5,9 @@ import { commit, parseAndPreview } from "@/src/server/imports";
 import { withApiAuthResponse } from "@/src/lib/api-auth";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 4 * 1024 * 1024;
 
 /**
  * Body variants:

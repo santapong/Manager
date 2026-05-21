@@ -4,8 +4,11 @@ import { parseAndPreview } from "@/src/server/imports";
 import { withApiAuthResponse } from "@/src/lib/api-auth";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
-const MAX_BYTES = 5 * 1024 * 1024;
+// Vercel Serverless Functions cap request bodies at 4.5 MB. See
+// docs/deploy/vercel.md.
+const MAX_BYTES = 4 * 1024 * 1024;
 
 const BodySchema = z.object({
   format: z.enum(["markdown"]).default("markdown"),

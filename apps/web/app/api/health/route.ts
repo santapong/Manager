@@ -3,7 +3,13 @@ import { sql } from "drizzle-orm";
 import { dbEdge } from "@manager/db";
 import { env } from "@/src/env";
 
-export const runtime = "edge";
+// Node runtime: `@manager/db` re-exports the postgres-js client from the
+// barrel, which pulls in `net`/`tls`/`stream` and cannot be bundled for the
+// Edge runtime. `dbEdge` itself is neon-http (HTTP-only) and would be Edge-
+// compatible if imported in isolation, but the package boundary forces Node
+// here. See docs/deploy/vercel.md for the rationale.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const startedAt = Date.now();

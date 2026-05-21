@@ -4,8 +4,12 @@ import { withActiveWorkspace } from "@/src/lib/workspace-context";
 import { parseAndPreview } from "@/src/server/imports";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
-const MAX_BYTES = 5 * 1024 * 1024; // 5 MB hard limit on input content
+// Vercel Serverless Functions cap request bodies at 4.5 MB; stay under that so
+// we surface a friendly 413 from this handler instead of a 413 from the
+// platform. See docs/deploy/vercel.md.
+const MAX_BYTES = 4 * 1024 * 1024; // 4 MB hard limit on input content
 
 const BodySchema = z.object({
   format: z.enum(["markdown"]).default("markdown"),

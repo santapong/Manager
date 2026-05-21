@@ -1,0 +1,20 @@
+{
+  "planFormat": 1,
+  "project": {
+    "key": "SUB",
+    "name": "Subtasks Demo"
+  },
+  "tasks": [
+    {
+      "key": "SUB-1",
+      "title": "Ship checklist",
+      "description": "Pre-release checklist.",
+      "subtasks": [
+        { "title": "Write release notes", "done": true },
+        { "title": "Tag the release", "done": true },
+        { "title": "Announce on Slack", "done": false },
+        { "title": "Update changelog", "done": false }
+      ]
+    }
+  ]
+}

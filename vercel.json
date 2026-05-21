@@ -5,6 +5,12 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "apps/web/.next",
   "regions": ["iad1"],
+  "functions": {
+    "apps/web/app/api/imports/preview/route.ts": { "maxDuration": 30 },
+    "apps/web/app/api/imports/commit/route.ts": { "maxDuration": 30 },
+    "apps/web/app/api/v1/import/preview/route.ts": { "maxDuration": 30 },
+    "apps/web/app/api/v1/import/commit/route.ts": { "maxDuration": 30 }
+  },
   "headers": [
     {
       "source": "/(.*)",

@@ -1,0 +1,67 @@
+{
+  "manifest_version": "0.2",
+  "name": "manager-mcp",
+  "display_name": "Manager",
+  "version": "0.1.0",
+  "description": "Drive your Manager workspace from Claude. Read projects, tasks, milestones; create tasks; import plans from Markdown.",
+  "long_description": "Exposes a Manager workspace as MCP tools. Read tools: list_projects, get_project, list_tasks, get_task, list_milestones, get_milestone_progress. Write tools: create_task, update_task_status, import_plan. v1 auth is a single static API key per Manager instance plus a workspace slug; Personal Access Tokens are the follow-up.",
+  "author": {
+    "name": "Manager"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/manager",
+  "icon": "icon.svg",
+  "server": {
+    "type": "node",
+    "entry_point": "server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server.js"],
+      "env": {
+        "MANAGER_BASE_URL": "${user_config.base_url}",
+        "MANAGER_API_KEY": "${user_config.api_key}",
+        "MANAGER_WORKSPACE_SLUG": "${user_config.workspace_slug}"
+      }
+    }
+  },
+  "tools": [
+    { "name": "list_projects", "description": "List projects in the configured workspace." },
+    { "name": "get_project", "description": "Fetch a project by key." },
+    { "name": "list_tasks", "description": "List tasks in a project, with optional filters." },
+    { "name": "get_task", "description": "Fetch a task by key with subtasks, labels, and links." },
+    { "name": "list_milestones", "description": "List milestones with progress for a project." },
+    { "name": "get_milestone_progress", "description": "Get rolled-up progress for one milestone." },
+    { "name": "create_task", "description": "Create a single task." },
+    { "name": "update_task_status", "description": "Update a task's status." },
+    { "name": "import_plan", "description": "Import a plan document (Markdown). Defaults to dry-run." }
+  ],
+  "user_config": {
+    "base_url": {
+      "type": "string",
+      "title": "Manager base URL",
+      "description": "Base URL of your Manager deployment, e.g. https://manager.yourcompany.com",
+      "default": "http://localhost:3000",
+      "required": true
+    },
+    "api_key": {
+      "type": "string",
+      "title": "API key",
+      "description": "Static integration API key (the value of MANAGER_API_KEY on the server). Personal Access Tokens replace this in a follow-up.",
+      "sensitive": true,
+      "required": true
+    },
+    "workspace_slug": {
+      "type": "string",
+      "title": "Workspace slug",
+      "description": "Slug of the Manager workspace this server should act on (one MCP install per workspace).",
+      "required": true
+    }
+  },
+  "compatibility": {
+    "client": ">=0.10.0",
+    "platforms": ["darwin", "linux", "win32"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  }
+}

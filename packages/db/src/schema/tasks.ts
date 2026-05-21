@@ -1,5 +1,6 @@
-import { index, integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, index, integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { lists } from "./lists";
+import { milestones } from "./milestones";
 import { projects } from "./projects";
 import { users } from "./users";
 import { workspaces } from "./workspaces";
@@ -17,6 +18,9 @@ export const tasks = pgTable(
     listId: uuid("list_id")
       .notNull()
       .references(() => lists.id, { onDelete: "cascade" }),
+    milestoneId: uuid("milestone_id").references((): AnyPgColumn => milestones.id, {
+      onDelete: "set null",
+    }),
     key: text("key").notNull(),
     title: text("title").notNull(),
     description: text("description"),
@@ -37,6 +41,7 @@ export const tasks = pgTable(
     keyPerProject: unique().on(table.projectId, table.key),
     byList: index("tasks_list_idx").on(table.listId, table.position),
     byWorkspaceUpdated: index("tasks_workspace_updated_idx").on(table.workspaceId, table.updatedAt),
+    byMilestone: index("tasks_milestone_idx").on(table.milestoneId),
   }),
 );
 

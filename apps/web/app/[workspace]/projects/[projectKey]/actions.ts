@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import {
   createTask as dbCreateTask,
   deleteTask as dbDeleteTask,
@@ -15,6 +16,17 @@ import {
   UpdateTaskSchema,
 } from "@/src/lib/validators/task";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
+
+const isoDateOrNull = z
+  .union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "Expected YYYY-MM-DD"), z.literal("")])
+  .nullable()
+  .optional();
+
+const UpdateProjectMetaSchema = z.object({
+  id: z.string().uuid(),
+  targetDate: isoDateOrNull,
+  startDate: isoDateOrNull,
+});
 
 async function resolveProject(slug: string, projectKey: string) {
   return withActiveWorkspace(async (tx, ws) => {
@@ -80,4 +92,37 @@ export async function deleteTask(slug: string, projectKey: string, formData: For
   await withActiveWorkspace(async (tx) => dbDeleteTask(tx, parsed.data.id));
   revalidatePath(`/${slug}/projects/${projectKey}`);
   return { ok: true };
+}
+
+/**
+ * Update project metadata (target_date, start_date). Wired from the project
+ * header "Edit dates" dialog. We keep the surface minimal here — name/key
+ * edits are out of scope for this wave.
+ */
+export async function updateProjectMeta(
+  slug: string,
+  projectKey: string,
+  _prev: unknown,
+  formData: FormData,
+) {
+  const parsed = UpdateProjectMetaSchema.safeParse({
+    id: formData.get("id"),
+    targetDate: formData.get("targetDate") || null,
+    startDate: formData.get("startDate") || null,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const patch: { targetDate: string | null; startDate: string | null } = {
+    targetDate: parsed.data.targetDate ? parsed.data.targetDate : null,
+    startDate: parsed.data.startDate ? parsed.data.startDate : null,
+  };
+
+  await withActiveWorkspace(async (tx, ws) =>
+    tx
+      .update(projects)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(and(eq(projects.workspaceId, ws.id), eq(projects.id, parsed.data.id))),
+  );
+  revalidatePath(`/${slug}/projects/${projectKey}`);
+  return { ok: true as const };
 }

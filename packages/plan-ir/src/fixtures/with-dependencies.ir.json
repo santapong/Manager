@@ -1,0 +1,22 @@
+{
+  "planFormat": 1,
+  "project": {
+    "key": "DEP",
+    "name": "Dependency Demo"
+  },
+  "tasks": [
+    { "key": "DEP-1", "title": "Foundation", "status": "done" },
+    {
+      "key": "DEP-2",
+      "title": "Middle layer",
+      "status": "in_progress",
+      "dependsOn": ["DEP-1"]
+    },
+    {
+      "key": "DEP-3",
+      "title": "Top layer",
+      "status": "todo",
+      "dependsOn": ["DEP-1", "DEP-2"]
+    }
+  ]
+}

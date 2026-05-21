@@ -1,0 +1,11 @@
+{
+  "planFormat": 1,
+  "project": {
+    "key": "FLAT",
+    "name": "Flat Plan"
+  },
+  "tasks": [
+    { "key": "FLAT-1", "title": "First task", "status": "todo" },
+    { "key": "FLAT-2", "title": "Second task", "status": "done" }
+  ]
+}

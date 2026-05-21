@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE } from "@manager/auth";
+// Import from the cookies subpath to avoid pulling node:crypto-using modules
+// (`service.ts`, `tokens.ts`) into the Edge middleware bundle.
+import { SESSION_COOKIE } from "@manager/auth/cookies";
 
 const PUBLIC_PATHS = ["/sign-in", "/api/auth", "/api/health", "/_next", "/favicon.ico"];
 

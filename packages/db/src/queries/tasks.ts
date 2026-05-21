@@ -45,7 +45,19 @@ export async function createTask(
 export async function updateTask(
   db: Database,
   id: string,
-  patch: Partial<Pick<Task, "title" | "description" | "status" | "priority" | "assigneeId" | "dueAt" | "points">>,
+  patch: Partial<
+    Pick<
+      Task,
+      | "title"
+      | "description"
+      | "status"
+      | "priority"
+      | "assigneeId"
+      | "dueAt"
+      | "points"
+      | "milestoneId"
+    >
+  >,
 ) {
   const [row] = await db
     .update(tasks)

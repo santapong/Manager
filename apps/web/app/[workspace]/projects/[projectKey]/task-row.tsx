@@ -1,7 +1,8 @@
 "use client";
 
-import { useOptimistic, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { deleteTask, updateTask } from "./actions";
+import { TaskDrawer } from "@/components/task-drawer/task-drawer";
 
 type Task = {
   id: string;
@@ -43,6 +44,7 @@ export function TaskRow({
     ...patch,
   }));
   const [pending, startTransition] = useTransition();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   function cycleStatus() {
     const next = STATUS_NEXT[optimistic.status];
@@ -75,11 +77,16 @@ export function TaskRow({
         className={`h-3.5 w-3.5 rounded-full ${STATUS_DOT[optimistic.status]} ring-1 ring-gray-300 hover:ring-gray-400`}
       />
       <span className="w-16 shrink-0 font-mono text-xs text-gray-500">{optimistic.key}</span>
-      <span
-        className={`flex-1 ${optimistic.status === "done" ? "text-gray-400 line-through" : ""}`}
+      <button
+        type="button"
+        onClick={() => setDrawerOpen(true)}
+        aria-label={`Open task ${optimistic.key}`}
+        className={`flex-1 truncate text-left hover:text-brand-700 hover:underline ${
+          optimistic.status === "done" ? "text-gray-400 line-through" : ""
+        }`}
       >
         {optimistic.title}
-      </span>
+      </button>
       <span className="text-xs uppercase text-gray-400">{optimistic.priority}</span>
       <button
         type="button"
@@ -88,6 +95,13 @@ export function TaskRow({
       >
         delete
       </button>
+      <TaskDrawer
+        workspaceSlug={workspaceSlug}
+        projectKey={projectKey}
+        taskId={optimistic.id}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
     </li>
   );
 }

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { tasks as tasksTable } from "@manager/db";
-import { updateTask as dbUpdateTask } from "@manager/db/queries";
+import { listMembers, updateTask as dbUpdateTask } from "@manager/db/queries";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
 import * as labelService from "@/src/server/labels";
 import * as milestoneService from "@/src/server/milestones";
@@ -21,6 +21,7 @@ const TaskIdInput = z.object({ id: z.string().uuid() });
  *   - labels attached
  *   - milestones available for this project (for the picker)
  *   - task_links involving this task (with the other side's title + key)
+ *   - workspace members (for the assignee picker)
  */
 export async function getTaskDetailAction(input: { id: string }) {
   const parsed = TaskIdInput.safeParse(input);
@@ -34,11 +35,12 @@ export async function getTaskDetailAction(input: { id: string }) {
       .limit(1);
     if (!task) return { error: "task_not_found" as const };
 
-    const [subtasks, tags, projectMilestones, taskLinks] = await Promise.all([
+    const [subtasks, tags, projectMilestones, taskLinks, members] = await Promise.all([
       subtaskService.listForTask(tx, ws.id, task.id),
       labelService.listForTask(tx, task.id),
       milestoneService.list(tx, ws.id, task.projectId),
       linkService.listTaskLinks(tx, ws.id, task.id),
+      listMembers(tx, ws.id),
     ]);
 
     // Resolve link counterpart task summaries.
@@ -66,12 +68,17 @@ export async function getTaskDetailAction(input: { id: string }) {
         description: task.description,
         status: task.status,
         priority: task.priority,
+        type: task.type,
+        assigneeId: task.assigneeId,
+        dueAt: task.dueAt ? task.dueAt.toISOString().slice(0, 10) : null,
+        points: task.points,
         milestoneId: task.milestoneId,
         projectId: task.projectId,
       },
       subtasks: subtasks.map((s) => ({ id: s.id, title: s.title, done: s.done })),
       tags: tags.map((l) => ({ id: l.id, name: l.name, color: l.color })),
       milestones: projectMilestones.map((m) => ({ id: m.id, name: m.name })),
+      members: members.map((m) => ({ userId: m.userId, name: m.name, email: m.email })),
       links: taskLinks.map((l) => {
         const other = l.fromTaskId === task.id ? l.toTaskId : l.fromTaskId;
         const direction: "outgoing" | "incoming" =
@@ -91,18 +98,15 @@ export async function getTaskDetailAction(input: { id: string }) {
 }
 
 /**
- * Patch the task title / description / milestone. Used by the drawer's
- * inline editors. Reuses UpdateTaskSchema.
+ * Patch task fields (title / description / status / priority / type /
+ * assignee / due date / points / milestone). Used by the drawer's inline
+ * editors. Reuses UpdateTaskSchema; `dueAt` arrives as "YYYY-MM-DD" | "" |
+ * null and is transformed to a Date by the schema.
  */
 export async function patchTaskAction(
   slug: string,
   projectKey: string,
-  input: {
-    id: string;
-    title?: string;
-    description?: string | null;
-    milestoneId?: string | null;
-  },
+  input: z.input<typeof UpdateTaskSchema>,
 ) {
   const parsed = UpdateTaskSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };

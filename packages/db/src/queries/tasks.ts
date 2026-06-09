@@ -52,6 +52,7 @@ export async function updateTask(
       | "description"
       | "status"
       | "priority"
+      | "type"
       | "assigneeId"
       | "dueAt"
       | "points"

@@ -23,7 +23,7 @@ export default async function ProjectGraphPage({
     const [project] = await tx
       .select()
       .from(projects)
-      .where(eq(projects.key, projectKey))
+      .where(and(eq(projects.workspaceId, ws.id), eq(projects.key, projectKey)))
       .limit(1);
     if (!project) return null;
 

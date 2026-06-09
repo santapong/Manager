@@ -169,6 +169,13 @@ function TaskDrawerBody({
         initial={detail.task.description ?? ""}
         onMutated={onMutated}
       />
+      <PropertiesSection
+        workspaceSlug={workspaceSlug}
+        projectKey={projectKey}
+        task={detail.task}
+        members={detail.members}
+        onMutated={onMutated}
+      />
       <MilestonePicker
         workspaceSlug={workspaceSlug}
         projectKey={projectKey}
@@ -336,6 +343,140 @@ function MilestonePicker({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+// --- Properties (assignee / due date / type / points) -----------------------
+
+const TASK_TYPES = ["task", "story", "bug", "epic"] as const;
+
+function PropertiesSection({
+  workspaceSlug,
+  projectKey,
+  task,
+  members,
+  onMutated,
+}: {
+  workspaceSlug: string;
+  projectKey: string;
+  task: {
+    id: string;
+    type: "task" | "story" | "bug" | "epic";
+    assigneeId: string | null;
+    dueAt: string | null;
+    points: number | null;
+  };
+  members: Array<{ userId: string; name: string | null; email: string }>;
+  onMutated: () => Promise<void>;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [points, setPoints] = useState(task.points === null ? "" : String(task.points));
+
+  useEffect(() => {
+    setPoints(task.points === null ? "" : String(task.points));
+  }, [task.points]);
+
+  function patch(input: {
+    type?: "task" | "story" | "bug" | "epic";
+    assigneeId?: string | null;
+    dueAt?: string | null;
+    points?: number | null;
+  }) {
+    startTransition(async () => {
+      await patchTaskAction(workspaceSlug, projectKey, { id: task.id, ...input });
+      await onMutated();
+    });
+  }
+
+  function savePoints() {
+    const trimmed = points.trim();
+    const next = trimmed === "" ? null : Number(trimmed);
+    if (next !== null && (!Number.isInteger(next) || next < 0 || next > 100)) {
+      setPoints(task.points === null ? "" : String(task.points));
+      return;
+    }
+    if (next === task.points) return;
+    patch({ points: next });
+  }
+
+  const fieldCls =
+    "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+  const labelCls = "mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500";
+
+  return (
+    <div className="mb-6 grid grid-cols-2 gap-3">
+      <div>
+        <label htmlFor="td-assignee" className={labelCls}>
+          Assignee
+        </label>
+        <select
+          id="td-assignee"
+          value={task.assigneeId ?? ""}
+          disabled={pending}
+          onChange={(e) => patch({ assigneeId: e.target.value || null })}
+          className={fieldCls}
+        >
+          <option value="">— unassigned —</option>
+          {members.map((m) => (
+            <option key={m.userId} value={m.userId}>
+              {m.name ?? m.email}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label htmlFor="td-due" className={labelCls}>
+          Due date
+        </label>
+        <input
+          id="td-due"
+          type="date"
+          value={task.dueAt ?? ""}
+          disabled={pending}
+          onChange={(e) => patch({ dueAt: e.target.value || null })}
+          className={fieldCls}
+        />
+      </div>
+      <div>
+        <label htmlFor="td-type" className={labelCls}>
+          Type
+        </label>
+        <select
+          id="td-type"
+          value={task.type}
+          disabled={pending}
+          onChange={(e) => patch({ type: e.target.value as (typeof TASK_TYPES)[number] })}
+          className={fieldCls}
+        >
+          {TASK_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label htmlFor="td-points" className={labelCls}>
+          Points
+        </label>
+        <input
+          id="td-points"
+          type="number"
+          min={0}
+          max={100}
+          step={1}
+          value={points}
+          disabled={pending}
+          onChange={(e) => setPoints(e.target.value)}
+          onBlur={savePoints}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          placeholder="—"
+          className={fieldCls}
+        />
+      </div>
     </div>
   );
 }

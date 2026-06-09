@@ -30,10 +30,12 @@ const UpdateProjectMetaSchema = z.object({
 
 async function resolveProject(slug: string, projectKey: string) {
   return withActiveWorkspace(async (tx, ws) => {
+    // Explicit workspace_id alongside RLS: the owner connection bypasses
+    // policies, and project keys are only unique per workspace.
     const [project] = await tx
       .select({ id: projects.id, key: projects.key, name: projects.name })
       .from(projects)
-      .where(eq(projects.key, projectKey))
+      .where(and(eq(projects.workspaceId, ws.id), eq(projects.key, projectKey)))
       .limit(1);
     if (!project) throw new Error("project_not_found");
     const [list] = await tx

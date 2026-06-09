@@ -18,9 +18,11 @@ export async function createProject(_prev: unknown, formData: FormData) {
   const svc = await auth();
   const session = await svc.requireSession();
 
-  let slug = "";
+  // redirect() works by throwing NEXT_REDIRECT, so it must stay OUTSIDE the
+  // try — otherwise the catch swallows it and the success redirect is lost.
+  let result: { slug: string; projectKey: string };
   try {
-    const result = await withActiveWorkspace(async (tx, ws) => {
+    result = await withActiveWorkspace(async (tx, ws) => {
       const project = await createProjectWithDefaultList(tx, {
         workspaceId: ws.id,
         key: parsed.data.key,
@@ -29,13 +31,11 @@ export async function createProject(_prev: unknown, formData: FormData) {
       });
       return { slug: ws.slug, projectKey: project.key };
     });
-    slug = result.slug;
-    redirect(`/${result.slug}/projects/${result.projectKey}`);
   } catch (e) {
     if (e instanceof Error && /unique|duplicate/i.test(e.message)) {
       return { error: `Project key "${parsed.data.key}" is taken — pick another.` };
     }
-    if (slug) redirect(`/${slug}`);
     throw e;
   }
+  redirect(`/${result.slug}/projects/${result.projectKey}`);
 }

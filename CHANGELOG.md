@@ -6,6 +6,34 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+### Phase 1 kickoff — roadmap refresh + task fields + member invites
+
+Phase 1 PR sequence revised before kickoff (PLAN.md §9 + §6, 2026-06-09): quick wins first, sprints item corrected back to Phase 2, Ably moved to stretch, Inngest deferred to Phase 2. First two PRs of the new sequence ship together here.
+
+#### Task fields quick win (Phase 1 PR 1)
+- Task drawer gains Assignee / Due date / Type / Points editors; list rows show type badge, due-date chip (red when overdue), assignee initials
+- `listMembers()` query (`packages/db/src/queries/members.ts`) — memberships ⋈ users, reused by the assignee picker and later by mentions
+- `updateTask()` accepts `type`; `UpdateTaskSchema` extended (`type`, `assigneeId`, `dueAt` as `YYYY-MM-DD`→`Date`, `points` 0–100)
+- Vitest: `packages/db/test/task-fields.test.ts`; smoke E2E extended to set fields via the drawer
+
+#### Member invites (Phase 1 PR 2)
+- `invites` table + migration `0003_invites` — hashed single-use tokens (magic-link scheme), 7-day TTL, one pending invite per email per workspace (partial unique index), RLS isolation policy
+- `/{workspace}/settings/members` — members list, invite form (email + role), pending invites with revoke, copy-invite-link
+- `/invite/[token]` accept flow — validates expiry/single-use/email match, creates membership with invited role, activates the workspace; invalid states render friendly errors
+- Invite email template in `@manager/email` (`templates/invite.ts`); shared `emailService()` helper extracted to `apps/web/src/lib/email.ts` (auth now uses it too)
+- Sign-in honors `?next=` (relative paths only) so invite links survive the auth bounce; workspace header gains Projects / Tags / Members nav
+- Vitest: `packages/db/test/invites.test.ts` (lifecycle, single-use, expiry, RLS isolation); Playwright `e2e/invites.spec.ts` (two-context invite → accept → member visible)
+
+#### Fixed (found by actually running the E2E suite end-to-end against local Postgres)
+- **Sessions never persisted in dev**: the `__Host-session` cookie was set without `Secure` outside production — browsers reject `__Host-` cookies lacking it. `Secure` now stays on in every env (localhost is a trustworthy origin, so http://localhost still works)
+- **Cross-tenant project reads**: the four app-page project lookups filtered by `key` alone, relying on RLS — which the table-owner connection (Neon default) bypasses. All now filter `workspace_id` explicitly (`projects/[projectKey]` page + actions, `milestones`, `graph`)
+- `middleware.ts` blocked `/api/dev/login`, so the Playwright `devLogin` helper followed the 307 to the sign-in page and "passed" with no cookie — the E2E suite could never have run; `/api/dev` added to public paths (route stays 404-gated by `DEV_LOGIN_TOKEN` + non-prod)
+- Workspace home "New project" used a relative `href="./projects/new"` that resolved to a 404; project rows are now links too
+- `createProject`'s success `redirect()` was swallowed by its own `try/catch` (`NEXT_REDIRECT` throws), landing users back on the workspace home
+- `turbo.json` now declares `env` keys for `build`/`test` — Turborepo strict mode was stripping `DATABASE_URL`/`AUTH_SECRET` before they reached `next build`
+- ESLint: generated `next-env.d.ts` ignored; unused var in `packages/db/test/rls.test.ts` renamed — `pnpm lint` is green again
+- E2E `devLogin` helper now stores the session cookie host-only via the `https://` url form (required for the `__Host-` prefix)
+
 ### Phase 0 — Scaffolding (complete)
 
 Phase 0 closed across 10 stacked PRs (#2–#11). Acceptance: a deployed Next.js 15 app on Vercel where a signed-in user can create a workspace, a project, and CRUD tasks; RLS enforces tenant isolation; Sentry captures errors; Playwright E2E covers the happy path and the isolation invariant.
@@ -81,9 +109,9 @@ Phase 0 closed across 10 stacked PRs (#2–#11). Acceptance: a deployed Next.js 
 
 See `PLAN.md` §6 for the complete decision log.
 
-### Coming next — Phase 1 (MVP)
+### Coming next — Phase 1 (MVP), PRs 3–11
 
-Kanban board with drag/drop, comments + @mentions, in-app + email notifications, basic search, command palette. Real Ably adapter wired to the `RealtimeService` port. Postgres FTS trigger-driven indexer. See `PLAN.md` §9 for the planned PR sequence and `docs/phase-1/README.md` for the landing zones.
+Collaboration schema (comments / activity / notifications), kanban board with drag/drop, comments + @mentions, notifications inbox, activity feed, Postgres FTS via generated tsvector, Cmd-K command palette, list sort/filter; Ably adapter as the end-of-phase stretch. See `PLAN.md` §9 for the revised sequence and `docs/phase-1/README.md` for the landing zones.
 
 ### Phases 2–4
 

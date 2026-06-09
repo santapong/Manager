@@ -42,10 +42,12 @@ export async function POST(req: NextRequest) {
   await db.insert(sessions).values({ id: sessionId, userId, expiresAt });
 
   const res = NextResponse.json({ userId, email: emailAddr });
+  // Secure stays on outside production too: __Host- cookies are rejected by
+  // browsers without it (localhost is a trustworthy origin, so this works).
   res.cookies.set(SESSION_COOKIE, sessionId, {
     httpOnly: baseCookieAttrs.httpOnly,
     sameSite: baseCookieAttrs.sameSite,
-    secure: nodeEnv === "production",
+    secure: baseCookieAttrs.secure,
     path: "/",
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
   });

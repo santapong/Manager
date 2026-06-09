@@ -13,7 +13,7 @@ describeIfDb("RLS isolation", () => {
   const wsB = randomUUID();
   const userA = randomUUID();
   const userB = randomUUID();
-  let projectA: string;
+  let _projectA: string;
 
   beforeAll(async () => {
     await db.insert(users).values([
@@ -29,7 +29,7 @@ describeIfDb("RLS isolation", () => {
       { workspaceId: wsB, userId: userB, role: "owner" },
     ]);
 
-    projectA = await withWorkspace(db, wsA, async (tx) => {
+    _projectA = await withWorkspace(db, wsA, async (tx) => {
       const [project] = await tx
         .insert(projects)
         .values({ workspaceId: wsA, key: "PROJ", name: "Project A", createdBy: userA })

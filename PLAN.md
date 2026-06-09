@@ -301,6 +301,12 @@ Concurrency rules:
 
 The PM appends decisions here, newest first. Format: `YYYY-MM-DD — decision — reasoning`.
 
+- 2026-06-09 — Tenant scoping must not rely on RLS alone; every workspace-scoped query also filters `workspace_id` explicitly — running the E2E suite against a real Postgres proved the app requires an RLS-bypassing table-owner connection today (pre-membership flows: sessions, onboarding, invite accept), which silently disables the policies. Verified empirically: under a non-owner role the onboarding/seeding flows are blocked by the very same policies. Migrating the runtime to a non-owner role (with a sanctioned bypass path for pre-membership flows) is scheduled as Phase 1 security work; until then RLS is defense-in-depth, not the primary control.
+- 2026-06-09 — Phase 1 re-sequenced at kickoff (see §9) — field wiring + member invites land first: the schema already carried `assignee_id`/`due_at`/`type`/`points` with no UI, and without invites every collaboration feature is single-player. Old P1-01 "sprint table" was a Phase 2 item; replaced by the comments/activity/notifications schema PR.
+- 2026-06-09 — Mention/assign notifications insert synchronously in the same transaction; emails are best-effort post-commit — cheap same-DB writes with transactional consistency. Inngest deferred to Phase 2 (digests, due-date reminders, outbound webhooks) instead of being Phase 1 plumbing.
+- 2026-06-09 — Ably adapter moved to end-of-phase stretch — every Phase 1 feature must work on the no-op `RealtimeService` (refresh/revalidate-first), per the §7 port rules. Promote to default-on in Phase 2 if dogfooding demands it.
+- 2026-06-09 — Task search will use a `GENERATED ALWAYS … STORED` tsvector column + GIN index, not the trigger sketched in the FTS stub — generated columns can't drift; the column stays out of the Drizzle schema to keep `Task` types clean.
+- 2026-06-09 — Invites use the magic-link token scheme (random 32 bytes, SHA-256 at rest, single-use), 7-day TTL, one pending invite per email per workspace — accept flow reads by token hash outside workspace context, same precedent as session/verification-token lookups.
 - 2026-05-14 — Phase 0 shipped end-to-end as 10 stacked PRs (PRs #2–#11) — review-sized increments, each with its own typecheck/lint/build gate. See [`CHANGELOG.md`](./CHANGELOG.md) for landed-feature breakdown.
 - 2026-05-14 — `typedRoutes` disabled in `next.config.ts` — query-string redirects don't satisfy the literal-route type checker. Re-enable when route surface stabilises.
 - 2026-05-14 — `pnpm.overrides` pins `drizzle-orm` to a single resolution — Sentry's OpenTelemetry peer would otherwise duplicate the package and break typecheck.
@@ -383,6 +389,8 @@ apps/web/src/lib/realtime/
 
 ### Phase 2 (Scrum + GitHub integration)
 
+Priorities (set 2026-06-09, given the codebase is ahead on types/points/subtasks/dependency-graph): (1) sprints — reuse the Phase 1 board components, burndown from `points`; (2) GitHub integration — the product wedge: PR↔task links keyed on task keys, inbound webhook driving status through the same activity/notification path; (3) saved views — persist the Phase 1 list-filter URL params; (4) first real Inngest use — due-date reminders, digests, outbound HMAC webhooks; (5) promote Ably to default-on if still deferred.
+
 ```
 apps/web/app/[workspace]/sprints/
 ├─ page.tsx          # Sprint list
@@ -433,17 +441,22 @@ packages/ai/                          # Gated by AI feature flag (off by default
 └─ src/                               # Anthropic adapter only after Phase 4 starts
 ```
 
-### Phase 1 PR sequence (first cut — refine before kickoff)
+### Phase 1 PR sequence (revised 2026-06-09 at kickoff)
 
-1. **P1-01** — Sprint table + relations in DB (`database-engineer`)
-2. **P1-02** — Comments table + `comments.ts` queries + mentions parser
-3. **P1-03** — Kanban board view with drag/drop (uses [`dnd-kit`](https://dndkit.com/)) — optimistic position updates
-4. **P1-04** — Notifications model + inbox UI
-5. **P1-05** — Realtime: Ably adapter (`realtime-engineer` recruit) wired to `RealtimeService` port
-6. **P1-06** — Mentions trigger notifications via Inngest job
-7. **P1-07** — Cmd-K command palette (frontend-engineer)
-8. **P1-08** — Postgres FTS indexer trigger + real `search()` implementation
-9. **P1-09** — Inbox: mark-as-read + filtering
-10. **P1-10** — Background job package wiring (`@manager/jobs` first real use)
+The first cut of this list (P1-01…P1-10) was re-sequenced before kickoff: the codebase shipped ahead of plan in `471f48d` (milestones, labels, subtasks, task links + dependency graph, plan import, MCP server, `/api/v1` reads), the old P1-01 ("sprint table") belonged to Phase 2, and two prerequisites were missing entirely — the task schema's `assignee_id`/`due_at`/`type`/`points` columns had no UI, and there was **no member-invite flow**, so every team feature (assignees, @mentions, notifications) would have been unusable single-player.
 
-Refine in the kick-off PM session for Phase 1 — this list is the starting point, not a contract.
+| # | PR | Contents |
+|---|---|---|
+| 1 | **Task fields quick win** *(shipped with this revision)* | Wire `assignee` / `due date` / `type` / `points` into the task drawer + list rows; `listMembers()` query; `updateTask()` gains `type` |
+| 2 | **Member invites** *(shipped with this revision)* | `invites` table (`0003_invites`, hashed single-use tokens, 7-day TTL, RLS), settings/members page, email via `EmailService` + copy-link, `/invite/[token]` accept flow, sign-in `next=` redirect |
+| 3 | **Collaboration schema** (`0004_collaboration`) | `comments` (`mentions uuid[]`), `activity` (append-only, typed events, `{from,to}` jsonb), `notifications` (recipient, `read_at`, partial unread index) + RLS + queries + Vitest |
+| 4 | **Kanban board** (`0005_position_double`) | dnd-kit board at `projects/[projectKey]/board`, column-per-status, fractional `position` (integer → double precision) computed server-side from neighbor IDs, optimistic moves, card opens the existing TaskDrawer |
+| 5 | **Comments + @mentions UI** | Drawer comments section + mention autocomplete (`@[Name](uuid)` tokens), notifications inserted in the same transaction, best-effort mention email post-commit; assignee-change notification |
+| 6 | **Inbox + unread badge** | `/[workspace]/inbox` (unread/all), mark-read / mark-all, nav badge via `countUnread`, `?task=` drawer deep-link (absorbs old P1-04 + P1-09) |
+| 7 | **Activity feed per task** | Diff-based `recordActivity()` from server actions + `/api/v1` status route; drawer feed merges activity + comments |
+| 8 | **Search** (`0006_search_tsv`) | `GENERATED ALWAYS … STORED` tsvector + GIN on tasks (not a trigger; column stays out of the Drizzle schema), real `search()` in the Postgres-FTS adapter, `/[workspace]/search` page |
+| 9 | **Cmd-K palette** (`cmdk`) | Navigate (projects/board/inbox/settings) + task search + quick actions, mounted in the workspace layout |
+| 10 | **List sort + filter** | URL searchParams (`status/priority/assignee/type/sort/dir`) + `listTasks()` options + filter bar; params become Phase 2 saved-views rows verbatim |
+| 11 | **Ably adapter** *(stretch)* | Implements the existing `RealtimeService` port + token route + `use-channel` hook (`router.refresh()` on event); app stays fully functional on the no-op adapter when `ABLY_API_KEY` is unset |
+
+Deltas vs. the first cut: P1-01 sprints → collaboration schema (sprints stay Phase 2); P1-02 split into schema (3) + UI (5); P1-04 + P1-09 merged into 6; P1-05 Ably → stretch 11; P1-06 "mentions via Inngest" → synchronous in-transaction inserts (**Inngest deferred to Phase 2** for digests/reminders/outbound webhooks); P1-10 jobs wiring → Phase 2; added 1 (field wiring), 2 (invites), 10 (sort/filter).

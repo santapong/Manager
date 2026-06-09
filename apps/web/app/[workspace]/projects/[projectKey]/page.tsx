@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { projects } from "@manager/db";
-import { listTasks } from "@manager/db/queries";
+import { listMembers, listTasks } from "@manager/db/queries";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
 import * as labelService from "@/src/server/labels";
 import * as milestoneService from "@/src/server/milestones";
@@ -19,10 +19,12 @@ export default async function ProjectPage({
 }) {
   const { workspace: slug, projectKey } = await params;
   const data = await withActiveWorkspace(async (tx, ws) => {
+    // Explicit workspace_id alongside RLS: the owner connection bypasses
+    // policies, and project keys are only unique per workspace.
     const [project] = await tx
       .select()
       .from(projects)
-      .where(eq(projects.key, projectKey))
+      .where(and(eq(projects.workspaceId, ws.id), eq(projects.key, projectKey)))
       .limit(1);
     if (!project) return null;
     const tasks = await listTasks(tx, project.id);
@@ -31,9 +33,12 @@ export default async function ProjectPage({
     const milestoneProgress = await Promise.all(
       milestones.map((m) => milestoneService.progress(tx, ws.id, m.id)),
     );
-    return { project, tasks, tags, milestones, milestoneProgress };
+    const members = await listMembers(tx, ws.id);
+    return { project, tasks, tags, milestones, milestoneProgress, members };
   });
   if (!data) notFound();
+
+  const memberById = new Map(data.members.map((m) => [m.userId, m.name ?? m.email] as const));
 
   const today = new Date().toISOString().slice(0, 10);
   const launchStatus = computeLaunchStatus(
@@ -99,6 +104,9 @@ export default async function ProjectPage({
                 title: task.title,
                 status: task.status,
                 priority: task.priority,
+                type: task.type,
+                dueAt: task.dueAt ? task.dueAt.toISOString().slice(0, 10) : null,
+                assignee: task.assigneeId ? (memberById.get(task.assigneeId) ?? null) : null,
               }}
             />
           ))}

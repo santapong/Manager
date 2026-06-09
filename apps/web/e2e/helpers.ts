@@ -14,7 +14,13 @@ export async function devLogin(
     data: { email },
   });
   if (!resp.ok()) throw new Error(`dev login failed: ${resp.status()} ${await resp.text()}`);
-  // Forward the Set-Cookie into the browser context.
+  // Forward the Set-Cookie into the browser context. __Host- cookies must be
+  // Secure AND host-only (no Domain attribute), so use the `url` form of
+  // addCookies. The url is forced to https:// because CDP refuses to store a
+  // Secure cookie via an http:// source — cookies are keyed by host (not
+  // scheme/port), and the browser still sends Secure cookies to
+  // http://localhost since it's a trustworthy origin.
+  const hostname = new URL(page.url() || "http://localhost:3000").hostname;
   const headers = resp.headersArray();
   for (const h of headers) {
     if (h.name.toLowerCase() === "set-cookie") {
@@ -24,10 +30,9 @@ export async function devLogin(
         {
           name: name!,
           value,
-          domain: new URL(page.url() || (await request.storageState()).origins[0]?.origin || "http://localhost").hostname,
-          path: "/",
+          url: `https://${hostname}`,
           httpOnly: true,
-          secure: false,
+          secure: true,
           sameSite: "Lax",
         },
       ]);

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { and, eq } from "drizzle-orm";
@@ -49,6 +50,23 @@ export default async function WorkspaceLayout({
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold tracking-tight">{ws.name}</span>
             <span className="font-mono text-xs text-gray-500">/{ws.slug}</span>
+            <nav aria-label="Workspace" className="ml-4 flex items-center gap-3 text-sm">
+              <Link href={`/${ws.slug}`} className="text-gray-600 hover:text-gray-900">
+                Projects
+              </Link>
+              <Link
+                href={`/${ws.slug}/settings/labels`}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Tags
+              </Link>
+              <Link
+                href={`/${ws.slug}/settings/members`}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Members
+              </Link>
+            </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-600">{session.user.email}</span>

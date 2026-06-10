@@ -9,4 +9,7 @@ export * from "./labels";
 export * from "./links";
 export * from "./subtasks";
 export * from "./invites";
+export * from "./comments";
+export * from "./activity";
+export * from "./notifications";
 export * from "./auth";

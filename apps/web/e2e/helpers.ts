@@ -1,4 +1,26 @@
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
+
+/**
+ * dnd-kit's PointerSensor needs real pointer movement (activation distance
+ * + continuous moves), which Playwright's dragTo doesn't emit. Drive the
+ * mouse manually in steps instead.
+ */
+export async function dragCardTo(page: Page, card: Locator, target: Locator): Promise<void> {
+  const cardBox = await card.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!cardBox || !targetBox) throw new Error("drag: element not visible");
+  const startX = cardBox.x + cardBox.width / 2;
+  const startY = cardBox.y + cardBox.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 12, startY, { steps: 4 }); // pass activation distance
+  await page.mouse.move(
+    targetBox.x + targetBox.width / 2,
+    targetBox.y + targetBox.height / 2,
+    { steps: 16 },
+  );
+  await page.mouse.up();
+}
 
 export async function devLogin(
   page: Page,

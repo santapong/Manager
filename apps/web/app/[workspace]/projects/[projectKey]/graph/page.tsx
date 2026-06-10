@@ -4,6 +4,7 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import { projectLinks, projects } from "@manager/db";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
 import { DependencyGraph } from "./dependency-graph";
+import { ProjectTabs } from "../project-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,8 @@ export default async function ProjectGraphPage({
           blocked by these in v1.
         </p>
       </header>
+
+      <ProjectTabs workspaceSlug={slug} projectKey={projectKey} active="graph" />
 
       {data.links.length === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">

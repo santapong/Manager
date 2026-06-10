@@ -9,6 +9,7 @@ import * as milestoneService from "@/src/server/milestones";
 import { NewTaskForm } from "./new-task-form";
 import { TaskRow } from "./task-row";
 import { ProjectHeader } from "./project-header";
+import { ProjectTabs } from "./project-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -64,26 +65,7 @@ export default async function ProjectPage({
         launchStatus={launchStatus}
       />
 
-      <nav aria-label="Project sections" className="flex gap-4 border-b border-gray-200 text-sm">
-        <Link
-          href={`/${slug}/projects/${projectKey}`}
-          className="-mb-px border-b-2 border-brand-600 px-1 py-2 font-medium text-brand-700"
-        >
-          Tasks
-        </Link>
-        <Link
-          href={`/${slug}/projects/${projectKey}/milestones`}
-          className="-mb-px border-b-2 border-transparent px-1 py-2 text-gray-500 hover:text-gray-900"
-        >
-          Milestones
-        </Link>
-        <Link
-          href={`/${slug}/projects/${projectKey}/graph`}
-          className="-mb-px border-b-2 border-transparent px-1 py-2 text-gray-500 hover:text-gray-900"
-        >
-          Dependencies
-        </Link>
-      </nav>
+      <ProjectTabs workspaceSlug={slug} projectKey={projectKey} active="tasks" />
 
       <NewTaskForm workspaceSlug={slug} projectKey={projectKey} />
 

@@ -5,6 +5,7 @@ import { projects } from "@manager/db";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
 import * as milestoneService from "@/src/server/milestones";
 import { NewMilestoneButton } from "./new-milestone-button";
+import { ProjectTabs } from "../project-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,8 @@ export default async function MilestonesPage({
         </div>
         <NewMilestoneButton workspaceSlug={slug} projectId={data.project.id} />
       </header>
+
+      <ProjectTabs workspaceSlug={slug} projectKey={projectKey} active="milestones" />
 
       {data.items.length === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">

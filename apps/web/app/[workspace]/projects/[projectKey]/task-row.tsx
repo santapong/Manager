@@ -3,6 +3,7 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { deleteTask, updateTask } from "./actions";
 import { TaskDrawer } from "@/components/task-drawer/task-drawer";
+import { initials, isOverdue, STATUS_LABEL, TYPE_BADGE } from "@/src/lib/task-ui";
 
 type Task = {
   id: string;
@@ -21,31 +22,11 @@ const STATUS_NEXT: Record<Task["status"], Task["status"]> = {
   done: "open",
 };
 
-const STATUS_LABEL: Record<Task["status"], string> = {
-  open: "Open",
-  in_progress: "In progress",
-  done: "Done",
-};
-
 const STATUS_DOT: Record<Task["status"], string> = {
   open: "bg-gray-300",
   in_progress: "bg-amber-400",
   done: "bg-green-500",
 };
-
-const TYPE_BADGE: Record<Task["type"], { label: string; cls: string }> = {
-  task: { label: "T", cls: "bg-gray-100 text-gray-600" },
-  story: { label: "S", cls: "bg-sky-100 text-sky-700" },
-  bug: { label: "B", cls: "bg-red-100 text-red-700" },
-  epic: { label: "E", cls: "bg-violet-100 text-violet-700" },
-};
-
-function initials(name: string): string {
-  const parts = name.trim().split(/[\s@.]+/u).filter(Boolean);
-  const first = parts[0]?.[0] ?? "?";
-  const second = parts.length > 1 ? (parts[1]?.[0] ?? "") : (parts[0]?.[1] ?? "");
-  return (first + second).toUpperCase();
-}
 
 export function TaskRow({
   workspaceSlug,
@@ -115,8 +96,7 @@ export function TaskRow({
         <span
           title={`Due ${optimistic.dueAt}`}
           className={`shrink-0 font-mono text-xs ${
-            optimistic.dueAt < new Date().toISOString().slice(0, 10) &&
-            optimistic.status !== "done"
+            isOverdue(optimistic.dueAt, optimistic.status)
               ? "font-semibold text-red-600"
               : "text-gray-500"
           }`}

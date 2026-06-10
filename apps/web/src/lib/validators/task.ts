@@ -37,6 +37,15 @@ export const DeleteTaskSchema = z.object({
   id: z.string().uuid(),
 });
 
+// Board drag/drop: the server computes the fractional position from the
+// neighbor ids — clients never send raw positions.
+export const MoveTaskSchema = z.object({
+  id: z.string().uuid(),
+  status: TaskStatusEnum,
+  beforeId: z.string().uuid().nullable().optional(),
+  afterId: z.string().uuid().nullable().optional(),
+});
+
 export const CreateProjectSchema = z.object({
   name: z.string().min(2).max(60),
   key: z

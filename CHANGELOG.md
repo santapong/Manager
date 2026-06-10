@@ -6,6 +6,39 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+### Phase 1 complete — PRs 3–11 (collaboration, board, search, palette, realtime)
+
+All remaining Phase 1 PRs shipped as a stacked wave on the kickoff branch. Every feature verified end-to-end with Playwright against a local Postgres 16 (7 specs green) plus 30 Vitest cases against the real schema.
+
+#### Collaboration schema (PR 3, migration `0004_collaboration`)
+- `comments` (mentions `uuid[]`), `activity` (append-only typed events with `{from,to}` payloads), `notifications` (recipient rows, `read_at`, partial unread index) — all with workspace RLS policies
+- `createComment()` parses `@[Name](uuid)` tokens, resolves them to members, inserts the comment + mention notifications + `comment_added` activity in one transaction
+
+#### Kanban board (PR 4, migration `0005_position_double`)
+- `tasks.position` → double precision; `moveTask()` computes fractional positions server-side from neighbor ids, with in-transaction column rebalance when gaps exhaust
+- dnd-kit board at `/projects/[key]/board` — column-per-status, live cross-column drag preview, DragOverlay, keyboard sensor; card click opens the task drawer; shared `ProjectTabs` nav across project pages
+
+#### Comments + mentions UI (PR 5) and inbox (PR 6)
+- Drawer comments thread + composer with @mention autocomplete; mention chips in rendered bodies; author-or-admin delete; best-effort mention emails post-commit
+- Assignee changes notify the new assignee in the same transaction
+- `/inbox` with unread/all filter, mark-read-on-open, mark-all; unread badge in the header; rows deep-link via `?task=` which auto-opens the drawer
+
+#### Activity feed (PR 7)
+- Diff-based `recordActivity()` on every field patch, task creation, board moves, and the `/api/v1` status route (null actor = API/MCP); compact feed in the drawer
+
+#### Search (PR 8, migration `0006_search_tsv`) + palette (PR 9) + filters (PR 10)
+- Generated `search_tsv` tsvector + GIN on tasks — `english` config for title/description (query stemming matches; a `simple`-indexed title made title-only words unfindable — caught by E2E), `simple` for keys with an ILIKE prefix arm for exact-key jumps
+- Real `search()` in `@manager/search` (workspace-scoped, ranked); `/[workspace]/search` page grouped by project
+- Cmd-K palette (`cmdk`): navigation + debounced FTS task search, mounted in the workspace layout
+- List filter/sort bar persisted in URL params — the exact shape Phase 2 saved views will store
+
+#### Realtime (PR 11 — code-complete, off by default)
+- Ably adapter behind the existing `RealtimeService` port (REST publish + subscribe-only token minting); `/api/realtime/token` 404s without `ABLY_API_KEY`; board subscribes through a lazily-imported browser helper and falls back silently to revalidate-on-action; board moves and comments publish best-effort
+
+#### CI + test harness
+- `ci.yml`: build step gets placeholder env (the Zod gate failed every CI build); `pnpm test` added as a gate
+- DB test files run sequentially against shared databases; the pre-existing blanket `DELETE FROM workspaces` cleanup is scoped; RLS isolation assertions across all suites now probe whether the connection role is policy-bound and skip honestly on owner/bypass connections
+
 ### Phase 1 kickoff — roadmap refresh + task fields + member invites
 
 Phase 1 PR sequence revised before kickoff (PLAN.md §9 + §6, 2026-06-09): quick wins first, sprints item corrected back to Phase 2, Ably moved to stretch, Inngest deferred to Phase 2. First two PRs of the new sequence ship together here.

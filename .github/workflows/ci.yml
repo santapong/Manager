@@ -38,3 +38,12 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          # Placeholders satisfy the Zod env gate; every page is dynamic so
+          # nothing connects at build time.
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci_placeholder
+          AUTH_SECRET: ci-placeholder-secret-0123456789abcdef
+
+      - name: Unit tests
+        # No DATABASE_URL: DB-backed suites skip; pure suites still run.
+        run: pnpm test

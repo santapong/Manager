@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { and, eq } from "drizzle-orm";
 import { projects } from "@manager/db";
 import { listMembers, listTasks } from "@manager/db/queries";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
 import * as labelService from "@/src/server/labels";
 import * as milestoneService from "@/src/server/milestones";
+import { parseListFilters } from "@/src/lib/validators/task";
+import { FilterBar } from "./filter-bar";
 import { NewTaskForm } from "./new-task-form";
 import { TaskRow } from "./task-row";
 import { ProjectHeader } from "./project-header";
@@ -18,12 +19,11 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string; projectKey: string }>;
-  searchParams: Promise<{ task?: string }>;
+  searchParams: Promise<Record<string, string | undefined> & { task?: string }>;
 }) {
-  const [{ workspace: slug, projectKey }, { task: openTaskId }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
+  const [{ workspace: slug, projectKey }, sp] = await Promise.all([params, searchParams]);
+  const openTaskId = sp.task;
+  const filters = parseListFilters(sp);
   const data = await withActiveWorkspace(async (tx, ws) => {
     // Explicit workspace_id alongside RLS: the owner connection bypasses
     // policies, and project keys are only unique per workspace.
@@ -33,7 +33,7 @@ export default async function ProjectPage({
       .where(and(eq(projects.workspaceId, ws.id), eq(projects.key, projectKey)))
       .limit(1);
     if (!project) return null;
-    const tasks = await listTasks(tx, project.id);
+    const tasks = await listTasks(tx, project.id, filters);
     const tags = await labelService.listForProject(tx, project.id);
     const milestones = await milestoneService.list(tx, ws.id, project.id);
     const milestoneProgress = await Promise.all(
@@ -72,11 +72,17 @@ export default async function ProjectPage({
 
       <ProjectTabs workspaceSlug={slug} projectKey={projectKey} active="tasks" />
 
+      <FilterBar
+        members={data.members.map((m) => ({ userId: m.userId, label: m.name ?? m.email }))}
+      />
+
       <NewTaskForm workspaceSlug={slug} projectKey={projectKey} />
 
       {data.tasks.length === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
-          No tasks yet. Add one above.
+          {Object.values(filters).some(Boolean)
+            ? "No tasks match the current filters."
+            : "No tasks yet. Add one above."}
         </p>
       ) : (
         <ul className="divide-y divide-gray-200 rounded-md border border-gray-200">

@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { and, eq } from "drizzle-orm";
 import { dbNode, memberships, workspaces } from "@manager/db";
-import { countUnread } from "@manager/db/queries";
+import { countUnread, listProjects } from "@manager/db/queries";
+import { CommandPalette } from "@/components/command-palette/command-palette";
 import { env } from "@/src/env";
 import { auth } from "@/src/lib/auth";
 import { ACTIVE_WORKSPACE_COOKIE } from "@/src/lib/workspace-context";
@@ -34,6 +35,7 @@ export default async function WorkspaceLayout({
   if (!m) notFound(); // never 403 — don't leak existence
 
   const unread = await countUnread(db, { workspaceId: ws.id, userId: session.user.id });
+  const projects = await listProjects(db, ws.id);
 
   const cookieStore = await cookies();
   if (cookieStore.get(ACTIVE_WORKSPACE_COOKIE)?.value !== ws.id) {
@@ -94,6 +96,10 @@ export default async function WorkspaceLayout({
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <CommandPalette
+        workspaceSlug={ws.slug}
+        projects={projects.map((p) => ({ key: p.key, name: p.name }))}
+      />
     </div>
   );
 }

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./browser": "./src/browser.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -13,5 +14,8 @@
   "devDependencies": {
     "@manager/config": "workspace:*",
     "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "ably": "^2.22.1"
   }
 }

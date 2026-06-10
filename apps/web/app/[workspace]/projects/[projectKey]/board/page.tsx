@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { projects } from "@manager/db";
 import { listMembers, listTasks } from "@manager/db/queries";
+import { projectChannel, REALTIME_ENABLED } from "@/src/lib/realtime";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
 import { ProjectTabs } from "../project-tabs";
 import { Board, type BoardTask } from "./board";
@@ -25,7 +26,7 @@ export default async function BoardPage({
       listTasks(tx, project.id),
       listMembers(tx, ws.id),
     ]);
-    return { project, tasks, members };
+    return { project, tasks, members, workspaceId: ws.id };
   });
   if (!data) notFound();
 
@@ -48,7 +49,12 @@ export default async function BoardPage({
         <h1 className="text-xl font-semibold tracking-tight">{data.project.name}</h1>
       </header>
       <ProjectTabs workspaceSlug={slug} projectKey={projectKey} active="board" />
-      <Board workspaceSlug={slug} projectKey={projectKey} tasks={tasks} />
+      <Board
+        workspaceSlug={slug}
+        projectKey={projectKey}
+        tasks={tasks}
+        channel={REALTIME_ENABLED ? projectChannel(data.workspaceId, data.project.id) : null}
+      />
     </div>
   );
 }

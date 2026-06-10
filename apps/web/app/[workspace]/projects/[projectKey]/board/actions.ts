@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { tasks as tasksTable } from "@manager/db";
 import { moveTask, recordActivity } from "@manager/db/queries";
+import { logger } from "@manager/observability";
 import { auth } from "@/src/lib/auth";
+import { projectChannel, realtimeService } from "@/src/lib/realtime";
 import { MoveTaskSchema } from "@/src/lib/validators/task";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
 
@@ -24,7 +26,7 @@ export async function moveTaskAction(
   const svc = await auth();
   const session = await svc.requireSession();
 
-  await withActiveWorkspace(async (tx, ws) => {
+  const moved = await withActiveWorkspace(async (tx, ws) => {
     const [before] = await tx
       .select({ status: tasksTable.status })
       .from(tasksTable)
@@ -50,7 +52,22 @@ export async function moveTaskAction(
         payload: { from: before.status, to: row.status },
       });
     }
+    return { workspaceId: ws.id, projectId: row.projectId, taskId: row.id };
   });
+
+  // Best-effort fanout (no-op adapter unless ABLY_API_KEY is configured).
+  try {
+    await realtimeService().publish({
+      channel: projectChannel(moved.workspaceId, moved.projectId),
+      event: "task.moved",
+      payload: { taskId: moved.taskId, actorId: session.user.id },
+    });
+  } catch (e) {
+    logger.warn("realtime_publish_failed", {
+      event: "task.moved",
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 
   revalidatePath(`/${slug}/projects/${projectKey}`);
   revalidatePath(`/${slug}/projects/${projectKey}/board`);

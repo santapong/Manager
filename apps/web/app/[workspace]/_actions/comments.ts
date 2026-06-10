@@ -8,6 +8,7 @@ import { createComment, deleteComment } from "@manager/db/queries";
 import { mentionEmail } from "@manager/email";
 import { auth } from "@/src/lib/auth";
 import { emailService } from "@/src/lib/email";
+import { projectChannel, realtimeService } from "@/src/lib/realtime";
 import { env } from "@/src/env";
 import { CreateCommentSchema, DeleteCommentSchema } from "@/src/lib/validators/comment";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
@@ -56,10 +57,29 @@ export async function createCommentAction(
             .from(users)
             .where(inArray(users.id, mentionedUserIds));
 
-    return { ok: true as const, comment, task, recipients: recipients.map((r) => r.email) };
+    return {
+      ok: true as const,
+      comment,
+      task,
+      workspaceId: ws.id,
+      recipients: recipients.map((r) => r.email),
+    };
   });
 
   if ("error" in result) return { error: result.error };
+
+  try {
+    await realtimeService().publish({
+      channel: projectChannel(result.workspaceId, result.task.projectId),
+      event: "comment.created",
+      payload: { taskId: result.task.id, commentId: result.comment.id },
+    });
+  } catch (e) {
+    logger.warn("realtime_publish_failed", {
+      event: "comment.created",
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 
   if (result.recipients.length > 0) {
     const url = `${env.NEXT_PUBLIC_APP_URL}/${slug}/projects/${projectKey}?task=${result.task.id}`;

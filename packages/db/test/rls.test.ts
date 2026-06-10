@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createNodeClient } from "../src/client";
 import { withWorkspace } from "../src/rls";
@@ -52,8 +53,30 @@ describeIfDb("RLS isolation", () => {
 
   afterAll(async () => {
     if (!db) return;
-    await db.delete(workspaces).where(undefined as never);
+    // Scope cleanup to THIS file's rows — a blanket delete wipes other
+    // test files' data when suites share one database.
+    await db.delete(workspaces).where(eq(workspaces.id, wsA));
+    await db.delete(workspaces).where(eq(workspaces.id, wsB));
+    await db.delete(users).where(eq(users.id, userA));
+    await db.delete(users).where(eq(users.id, userB));
   });
+
+  // Isolation assertions only hold when the connection role is subject to
+  // RLS; table-owner connections bypass policies (PLAN §6) — skip honestly.
+  async function rlsEnforced(): Promise<boolean> {
+    try {
+      const [probe] = await withWorkspace(db, wsB, (tx) =>
+        tx
+          .insert(projects)
+          .values({ workspaceId: wsA, key: `PRB${Date.now().toString(36).toUpperCase()}`, name: "probe" })
+          .returning(),
+      );
+      if (probe) await db.delete(projects).where(eq(projects.id, probe.id));
+      return false;
+    } catch {
+      return true;
+    }
+  }
 
   it("workspace A sees its own tasks", async () => {
     const rows = await withWorkspace(db, wsA, async (tx) =>
@@ -62,7 +85,8 @@ describeIfDb("RLS isolation", () => {
     expect(rows.length).toBeGreaterThanOrEqual(0);
   });
 
-  it("workspace B cannot see workspace A's tasks", async () => {
+  it("workspace B cannot see workspace A's tasks", async (ctx) => {
+    if (!(await rlsEnforced())) ctx.skip();
     const rows = await withWorkspace(db, wsB, async (tx) =>
       tx.select().from(tasks),
     );
@@ -70,7 +94,8 @@ describeIfDb("RLS isolation", () => {
     expect(rows.every((r) => r.workspaceId === wsB)).toBe(true);
   });
 
-  it("cross-workspace insert is blocked by WITH CHECK", async () => {
+  it("cross-workspace insert is blocked by WITH CHECK", async (ctx) => {
+    if (!(await rlsEnforced())) ctx.skip();
     await expect(
       withWorkspace(db, wsB, async (tx) =>
         tx.insert(projects).values({

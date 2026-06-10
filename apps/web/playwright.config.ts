@@ -10,6 +10,9 @@ export default defineConfig({
   retries: isCI ? 1 : 0,
   forbidOnly: isCI,
   reporter: isCI ? [["github"], ["list"]] : "list",
+  // Tests run against `next dev`; cold route compiles regularly exceed the
+  // 5s default, especially with parallel workers sharing one server.
+  expect: { timeout: 15_000 },
   use: {
     baseURL,
     trace: "on-first-retry",

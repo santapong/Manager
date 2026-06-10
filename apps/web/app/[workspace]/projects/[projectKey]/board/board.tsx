@@ -25,6 +25,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { TaskDrawer } from "@/components/task-drawer/task-drawer";
+import { useProjectChannel } from "@/src/lib/realtime/use-channel";
 import { STATUS_LABEL, type TaskStatus } from "@/src/lib/task-ui";
 import { moveTaskAction } from "./actions";
 import { BoardCard, BoardCardContent } from "./board-card";
@@ -57,11 +58,15 @@ export function Board({
   workspaceSlug,
   projectKey,
   tasks,
+  channel = null,
 }: {
   workspaceSlug: string;
   projectKey: string;
   tasks: BoardTask[];
+  /** Realtime channel name, or null when realtime is not configured. */
+  channel?: string | null;
 }) {
+  useProjectChannel(channel);
   const [columns, setColumns] = useState<Columns>(() => groupIds(tasks));
   const [activeId, setActiveId] = useState<string | null>(null);
   const [drawerTaskId, setDrawerTaskId] = useState<string | null>(null);

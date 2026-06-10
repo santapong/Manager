@@ -5,6 +5,8 @@ const ts = Date.now();
 const EMAIL = `board-${ts}@test.local`;
 
 test.describe("Kanban board", () => {
+  test.setTimeout(120_000); // cold dev-server compiles blow the 30s default
+
   test("drag a card across columns persists status + order", async ({ page, request }) => {
     await page.goto("/sign-in");
     await devLogin(page, request, EMAIL);

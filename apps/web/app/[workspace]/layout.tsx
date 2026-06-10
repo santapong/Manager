@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { and, eq } from "drizzle-orm";
 import { dbNode, memberships, workspaces } from "@manager/db";
+import { countUnread } from "@manager/db/queries";
 import { env } from "@/src/env";
 import { auth } from "@/src/lib/auth";
 import { ACTIVE_WORKSPACE_COOKIE } from "@/src/lib/workspace-context";
@@ -32,6 +33,8 @@ export default async function WorkspaceLayout({
     .limit(1);
   if (!m) notFound(); // never 403 — don't leak existence
 
+  const unread = await countUnread(db, { workspaceId: ws.id, userId: session.user.id });
+
   const cookieStore = await cookies();
   if (cookieStore.get(ACTIVE_WORKSPACE_COOKIE)?.value !== ws.id) {
     cookieStore.set(ACTIVE_WORKSPACE_COOKIE, ws.id, {
@@ -53,6 +56,20 @@ export default async function WorkspaceLayout({
             <nav aria-label="Workspace" className="ml-4 flex items-center gap-3 text-sm">
               <Link href={`/${ws.slug}`} className="text-gray-600 hover:text-gray-900">
                 Projects
+              </Link>
+              <Link
+                href={`/${ws.slug}/inbox`}
+                className="inline-flex items-center gap-1.5 text-gray-600 hover:text-gray-900"
+              >
+                Inbox
+                {unread > 0 ? (
+                  <span
+                    aria-label={`${unread} unread notifications`}
+                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-white"
+                  >
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                ) : null}
               </Link>
               <Link
                 href={`/${ws.slug}/settings/labels`}

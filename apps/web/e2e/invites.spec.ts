@@ -6,6 +6,8 @@ const OWNER_EMAIL = `inv-owner-${ts}@test.local`;
 const INVITEE_EMAIL = `inv-member-${ts}@test.local`;
 
 test.describe("Member invites", () => {
+  test.setTimeout(120_000); // two contexts + cold dev-server compiles
+
   test("owner invites by email, invitee accepts via link and joins", async ({
     page,
     request,

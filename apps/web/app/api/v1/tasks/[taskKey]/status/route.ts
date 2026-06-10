@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { projects, tasks } from "@manager/db";
+import { recordActivity } from "@manager/db/queries";
 import { withApiAuthResponse } from "@/src/lib/api-auth";
 
 export const runtime = "nodejs";
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ taskKey: s
       return NextResponse.json({ error: "project_not_found" }, { status: 404 });
     }
     const [task] = await db
-      .select({ id: tasks.id })
+      .select({ id: tasks.id, status: tasks.status })
       .from(tasks)
       .where(and(eq(tasks.projectId, project.id), eq(tasks.key, taskKey)))
       .limit(1);
@@ -57,6 +58,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ taskKey: s
       .set({ status: parsed.data.status, updatedAt: new Date() })
       .where(eq(tasks.id, task.id))
       .returning({ id: tasks.id, key: tasks.key, status: tasks.status });
+    if (updated && task.status !== updated.status) {
+      // actor_id null = API/MCP write — the feed still shows the change.
+      await recordActivity(db, {
+        workspaceId: auth.workspaceId,
+        projectId: project.id,
+        taskId: task.id,
+        actorId: null,
+        type: "status_changed",
+        payload: { from: task.status, to: updated.status },
+      });
+    }
     return NextResponse.json({ task: updated }, { status: 200 });
   });
 }

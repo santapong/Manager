@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   createTask as dbCreateTask,
   deleteTask as dbDeleteTask,
+  recordActivity,
   updateTask as dbUpdateTask,
 } from "@manager/db/queries";
 import { lists, projects } from "@manager/db";
@@ -60,16 +61,24 @@ export async function createTask(slug: string, projectKey: string, _prev: unknow
   const session = await svc.requireSession();
   const { project, listId } = await resolveProject(slug, projectKey);
 
-  await withActiveWorkspace(async (tx, ws) =>
-    dbCreateTask(tx, {
+  await withActiveWorkspace(async (tx, ws) => {
+    const task = await dbCreateTask(tx, {
       workspaceId: ws.id,
       projectId: project.id,
       listId,
       title: parsed.data.title,
       description: parsed.data.description ?? null,
       createdBy: session.user.id,
-    }),
-  );
+    });
+    await recordActivity(tx, {
+      workspaceId: ws.id,
+      projectId: project.id,
+      taskId: task.id,
+      actorId: session.user.id,
+      type: "task_created",
+      payload: { key: task.key },
+    });
+  });
   revalidatePath(`/${slug}/projects/${projectKey}`);
   return { ok: true };
 }

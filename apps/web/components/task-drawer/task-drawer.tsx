@@ -24,6 +24,8 @@ import {
   createTaskLinkAction,
   deleteTaskLinkAction,
 } from "../../app/[workspace]/_actions/links";
+import { ActivityFeed } from "./activity-feed";
+import { CommentsSection } from "./comments-section";
 
 type Detail = Extract<Awaited<ReturnType<typeof getTaskDetailAction>>, { ok: true }>;
 type WorkspaceLabel = { id: string; name: string; color: string };
@@ -203,6 +205,16 @@ function TaskDrawerBody({
         links={detail.links}
         onMutated={onMutated}
       />
+      <CommentsSection
+        workspaceSlug={workspaceSlug}
+        projectKey={projectKey}
+        taskId={detail.task.id}
+        comments={detail.comments}
+        members={detail.members}
+        me={detail.me}
+        onMutated={onMutated}
+      />
+      <ActivityFeed entries={detail.activity} />
     </div>
   );
 }

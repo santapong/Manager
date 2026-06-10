@@ -32,17 +32,20 @@ export function TaskRow({
   workspaceSlug,
   projectKey,
   task,
+  initialOpen = false,
 }: {
   workspaceSlug: string;
   projectKey: string;
   task: Task;
+  /** Open the drawer on mount — used by ?task= deep links from the inbox. */
+  initialOpen?: boolean;
 }) {
   const [optimistic, applyOptimistic] = useOptimistic(task, (state, patch: Partial<Task>) => ({
     ...state,
     ...patch,
   }));
   const [pending, startTransition] = useTransition();
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(initialOpen);
 
   function cycleStatus() {
     const next = STATUS_NEXT[optimistic.status];

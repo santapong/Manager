@@ -15,10 +15,15 @@ export const dynamic = "force-dynamic";
 
 export default async function ProjectPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspace: string; projectKey: string }>;
+  searchParams: Promise<{ task?: string }>;
 }) {
-  const { workspace: slug, projectKey } = await params;
+  const [{ workspace: slug, projectKey }, { task: openTaskId }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const data = await withActiveWorkspace(async (tx, ws) => {
     // Explicit workspace_id alongside RLS: the owner connection bypasses
     // policies, and project keys are only unique per workspace.
@@ -80,6 +85,7 @@ export default async function ProjectPage({
               key={task.id}
               workspaceSlug={slug}
               projectKey={projectKey}
+              initialOpen={task.id === openTaskId}
               task={{
                 id: task.id,
                 key: task.key,

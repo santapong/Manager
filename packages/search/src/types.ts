@@ -12,6 +12,8 @@ export interface SearchHit {
   id: string;
   key: string;
   title: string;
+  status: "open" | "in_progress" | "done";
+  projectKey: string;
   rank: number;
 }
 

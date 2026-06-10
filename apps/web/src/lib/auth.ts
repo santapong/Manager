@@ -6,36 +6,28 @@ import {
   baseCookieAttrs,
 } from "@manager/auth";
 import { dbNode } from "@manager/db";
-import { createConsoleEmailService, createResendEmailService } from "@manager/email";
 import { env } from "../env";
+import { emailService } from "./email";
 
 export async function auth(): Promise<AuthService> {
   const cookieStore = await cookies();
+  // baseCookieAttrs keeps Secure on in every env: the __Host- prefix REQUIRES
+  // it — browsers drop the cookie otherwise, even on http://localhost (where
+  // Chrome/Firefox accept Secure cookies as a trustworthy-origin exception).
   const cookieJar: CookieJar = {
     get(name) {
       return cookieStore.get(name)?.value;
     },
     set(name, value, { maxAge }) {
-      cookieStore.set(name, value, {
-        ...baseCookieAttrs,
-        secure: env.NODE_ENV === "production",
-        maxAge,
-      });
+      cookieStore.set(name, value, { ...baseCookieAttrs, maxAge });
     },
     delete(name) {
-      cookieStore.set(name, "", {
-        ...baseCookieAttrs,
-        secure: env.NODE_ENV === "production",
-        maxAge: 0,
-      });
+      cookieStore.set(name, "", { ...baseCookieAttrs, maxAge: 0 });
     },
   };
-  const emailService = env.RESEND_API_KEY
-    ? createResendEmailService(env.RESEND_API_KEY, env.EMAIL_FROM)
-    : createConsoleEmailService();
   return createAuthService({
     db: dbNode(env.DATABASE_URL),
-    email: emailService,
+    email: emailService(),
     appUrl: env.NEXT_PUBLIC_APP_URL,
     cookieJar,
     fromEmail: env.EMAIL_FROM,

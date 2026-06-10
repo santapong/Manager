@@ -1,39 +1,50 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { projects } from "@manager/db";
-import { listTasks } from "@manager/db/queries";
+import { listMembers, listTasks } from "@manager/db/queries";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
 import * as labelService from "@/src/server/labels";
 import * as milestoneService from "@/src/server/milestones";
+import { parseListFilters } from "@/src/lib/validators/task";
+import { FilterBar } from "./filter-bar";
 import { NewTaskForm } from "./new-task-form";
 import { TaskRow } from "./task-row";
 import { ProjectHeader } from "./project-header";
+import { ProjectTabs } from "./project-tabs";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspace: string; projectKey: string }>;
+  searchParams: Promise<Record<string, string | undefined> & { task?: string }>;
 }) {
-  const { workspace: slug, projectKey } = await params;
+  const [{ workspace: slug, projectKey }, sp] = await Promise.all([params, searchParams]);
+  const openTaskId = sp.task;
+  const filters = parseListFilters(sp);
   const data = await withActiveWorkspace(async (tx, ws) => {
+    // Explicit workspace_id alongside RLS: the owner connection bypasses
+    // policies, and project keys are only unique per workspace.
     const [project] = await tx
       .select()
       .from(projects)
-      .where(eq(projects.key, projectKey))
+      .where(and(eq(projects.workspaceId, ws.id), eq(projects.key, projectKey)))
       .limit(1);
     if (!project) return null;
-    const tasks = await listTasks(tx, project.id);
+    const tasks = await listTasks(tx, project.id, filters);
     const tags = await labelService.listForProject(tx, project.id);
     const milestones = await milestoneService.list(tx, ws.id, project.id);
     const milestoneProgress = await Promise.all(
       milestones.map((m) => milestoneService.progress(tx, ws.id, m.id)),
     );
-    return { project, tasks, tags, milestones, milestoneProgress };
+    const members = await listMembers(tx, ws.id);
+    return { project, tasks, tags, milestones, milestoneProgress, members };
   });
   if (!data) notFound();
+
+  const memberById = new Map(data.members.map((m) => [m.userId, m.name ?? m.email] as const));
 
   const today = new Date().toISOString().slice(0, 10);
   const launchStatus = computeLaunchStatus(
@@ -59,32 +70,19 @@ export default async function ProjectPage({
         launchStatus={launchStatus}
       />
 
-      <nav aria-label="Project sections" className="flex gap-4 border-b border-gray-200 text-sm">
-        <Link
-          href={`/${slug}/projects/${projectKey}`}
-          className="-mb-px border-b-2 border-brand-600 px-1 py-2 font-medium text-brand-700"
-        >
-          Tasks
-        </Link>
-        <Link
-          href={`/${slug}/projects/${projectKey}/milestones`}
-          className="-mb-px border-b-2 border-transparent px-1 py-2 text-gray-500 hover:text-gray-900"
-        >
-          Milestones
-        </Link>
-        <Link
-          href={`/${slug}/projects/${projectKey}/graph`}
-          className="-mb-px border-b-2 border-transparent px-1 py-2 text-gray-500 hover:text-gray-900"
-        >
-          Dependencies
-        </Link>
-      </nav>
+      <ProjectTabs workspaceSlug={slug} projectKey={projectKey} active="tasks" />
+
+      <FilterBar
+        members={data.members.map((m) => ({ userId: m.userId, label: m.name ?? m.email }))}
+      />
 
       <NewTaskForm workspaceSlug={slug} projectKey={projectKey} />
 
       {data.tasks.length === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
-          No tasks yet. Add one above.
+          {Object.values(filters).some(Boolean)
+            ? "No tasks match the current filters."
+            : "No tasks yet. Add one above."}
         </p>
       ) : (
         <ul className="divide-y divide-gray-200 rounded-md border border-gray-200">
@@ -93,12 +91,16 @@ export default async function ProjectPage({
               key={task.id}
               workspaceSlug={slug}
               projectKey={projectKey}
+              initialOpen={task.id === openTaskId}
               task={{
                 id: task.id,
                 key: task.key,
                 title: task.title,
                 status: task.status,
                 priority: task.priority,
+                type: task.type,
+                dueAt: task.dueAt ? task.dueAt.toISOString().slice(0, 10) : null,
+                assignee: task.assigneeId ? (memberById.get(task.assigneeId) ?? null) : null,
               }}
             />
           ))}

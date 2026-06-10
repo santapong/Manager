@@ -1,4 +1,14 @@
-import { type AnyPgColumn, index, integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  type AnyPgColumn,
+  doublePrecision,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { lists } from "./lists";
 import { milestones } from "./milestones";
 import { projects } from "./projects";
@@ -32,7 +42,9 @@ export const tasks = pgTable(
     assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
     dueAt: timestamp("due_at", { withTimezone: true }),
     points: integer("points"),
-    position: integer("position").notNull().default(0),
+    // Fractional ordering for the board: midpoint insertion between
+    // neighbors, server-side rebalance when gaps exhaust (0005 migration).
+    position: doublePrecision("position").notNull().default(0),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

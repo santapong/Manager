@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { projects } from "@manager/db";
 import { withActiveWorkspace } from "@/src/lib/workspace-context";
 import * as milestoneService from "@/src/server/milestones";
 import { NewMilestoneButton } from "./new-milestone-button";
+import { ProjectTabs } from "../project-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export default async function MilestonesPage({
     const [project] = await tx
       .select()
       .from(projects)
-      .where(eq(projects.key, projectKey))
+      .where(and(eq(projects.workspaceId, ws.id), eq(projects.key, projectKey)))
       .limit(1);
     if (!project) return null;
     const list = await milestoneService.list(tx, ws.id, project.id);
@@ -56,6 +57,8 @@ export default async function MilestonesPage({
         </div>
         <NewMilestoneButton workspaceSlug={slug} projectId={data.project.id} />
       </header>
+
+      <ProjectTabs workspaceSlug={slug} projectKey={projectKey} active="milestones" />
 
       {data.items.length === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">

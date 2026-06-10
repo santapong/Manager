@@ -5,7 +5,7 @@ import { signInWithMagicLink, signInWithGitHub } from "./actions";
 
 type State = { ok?: boolean; sentTo?: string; error?: string };
 
-export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
+export function SignInForm({ githubEnabled, next }: { githubEnabled: boolean; next?: string }) {
   const [state, formAction, pending] = useActionState<State, FormData>(signInWithMagicLink, {});
 
   if (state.ok) {
@@ -23,6 +23,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
   return (
     <div className="space-y-4">
       <form action={formAction} className="space-y-3">
+        {next ? <input type="hidden" name="next" value={next} /> : null}
         <label htmlFor="email" className="block text-sm font-medium text-gray-700">
           Email
         </label>
@@ -59,6 +60,7 @@ export function SignInForm({ githubEnabled }: { githubEnabled: boolean }) {
             </div>
           </div>
           <form action={signInWithGitHub}>
+            {next ? <input type="hidden" name="next" value={next} /> : null}
             <button
               type="submit"
               className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"

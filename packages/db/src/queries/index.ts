@@ -2,3 +2,8 @@ export * from "./workspaces";
 export * from "./projects";
 export * from "./tasks";
 export * from "./links";
+export * from "./members";
+export * from "./invites";
+export * from "./comments";
+export * from "./activity";
+export * from "./notifications";

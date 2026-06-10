@@ -3,7 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 // (`service.ts`, `tokens.ts`) into the Edge middleware bundle.
 import { SESSION_COOKIE } from "@manager/auth/cookies";
 
-const PUBLIC_PATHS = ["/sign-in", "/api/auth", "/api/health", "/_next", "/favicon.ico"];
+// /api/dev is self-guarding: 404 unless DEV_LOGIN_TOKEN is set and not prod.
+const PUBLIC_PATHS = ["/sign-in", "/api/auth", "/api/health", "/api/dev", "/_next", "/favicon.ico"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

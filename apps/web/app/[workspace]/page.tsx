@@ -4,14 +4,19 @@ import { listProjects } from "@manager/db/queries";
 
 export const dynamic = "force-dynamic";
 
-export default async function WorkspaceHomePage() {
+export default async function WorkspaceHomePage({
+  params,
+}: {
+  params: Promise<{ workspace: string }>;
+}) {
+  const { workspace: slug } = await params;
   const projects = await withActiveWorkspace(async (tx, ws) => listProjects(tx, ws.id));
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
         <Link
-          href="./projects/new"
+          href={`/${slug}/projects/new`}
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
         >
           New project
@@ -24,9 +29,14 @@ export default async function WorkspaceHomePage() {
       ) : (
         <ul className="divide-y divide-gray-200 rounded-md border border-gray-200">
           {projects.map((p) => (
-            <li key={p.id} className="flex items-center justify-between px-4 py-3">
-              <span className="font-medium">{p.name}</span>
-              <span className="font-mono text-xs text-gray-500">{p.key}</span>
+            <li key={p.id}>
+              <Link
+                href={`/${slug}/projects/${p.key}`}
+                className="flex items-center justify-between px-4 py-3 hover:bg-gray-50"
+              >
+                <span className="font-medium">{p.name}</span>
+                <span className="font-mono text-xs text-gray-500">{p.key}</span>
+              </Link>
             </li>
           ))}
         </ul>

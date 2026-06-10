@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { and, eq } from "drizzle-orm";
 import { dbNode, memberships, workspaces } from "@manager/db";
+import { countUnread, listProjects } from "@manager/db/queries";
+import { CommandPalette } from "@/components/command-palette/command-palette";
 import { env } from "@/src/env";
 import { auth } from "@/src/lib/auth";
 import { ACTIVE_WORKSPACE_COOKIE } from "@/src/lib/workspace-context";
@@ -31,6 +34,9 @@ export default async function WorkspaceLayout({
     .limit(1);
   if (!m) notFound(); // never 403 — don't leak existence
 
+  const unread = await countUnread(db, { workspaceId: ws.id, userId: session.user.id });
+  const projects = await listProjects(db, ws.id);
+
   const cookieStore = await cookies();
   if (cookieStore.get(ACTIVE_WORKSPACE_COOKIE)?.value !== ws.id) {
     cookieStore.set(ACTIVE_WORKSPACE_COOKIE, ws.id, {
@@ -49,6 +55,37 @@ export default async function WorkspaceLayout({
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold tracking-tight">{ws.name}</span>
             <span className="font-mono text-xs text-gray-500">/{ws.slug}</span>
+            <nav aria-label="Workspace" className="ml-4 flex items-center gap-3 text-sm">
+              <Link href={`/${ws.slug}`} className="text-gray-600 hover:text-gray-900">
+                Projects
+              </Link>
+              <Link
+                href={`/${ws.slug}/inbox`}
+                className="inline-flex items-center gap-1.5 text-gray-600 hover:text-gray-900"
+              >
+                Inbox
+                {unread > 0 ? (
+                  <span
+                    aria-label={`${unread} unread notifications`}
+                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-white"
+                  >
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                ) : null}
+              </Link>
+              <Link
+                href={`/${ws.slug}/settings/labels`}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Tags
+              </Link>
+              <Link
+                href={`/${ws.slug}/settings/members`}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Members
+              </Link>
+            </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-600">{session.user.email}</span>
@@ -59,6 +96,10 @@ export default async function WorkspaceLayout({
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <CommandPalette
+        workspaceSlug={ws.slug}
+        projects={projects.map((p) => ({ key: p.key, name: p.name }))}
+      />
     </div>
   );
 }

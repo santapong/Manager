@@ -17,6 +17,9 @@ const serverSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().min(3).default("Manager <noreply@example.com>"),
 
+  // Realtime is optional — without a key the app runs on the no-op adapter.
+  ABLY_API_KEY: z.string().optional(),
+
   SENTRY_DSN: z.string().url().optional(),
   SENTRY_ENVIRONMENT: z.string().optional(),
   AXIOM_TOKEN: z.string().optional(),

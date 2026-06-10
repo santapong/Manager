@@ -20,7 +20,7 @@ ${url}`;
 <h1 style="font-size:18px;margin:0 0 16px">${escapeHtml(actorName)} mentioned you</h1>
 <p style="color:#444;line-height:1.5"><span style="font-family:ui-monospace,monospace;font-size:13px;color:#666">${escapeHtml(taskKey)}</span> ${escapeHtml(taskTitle)}</p>
 <blockquote style="margin:16px 0;padding:10px 14px;background:#f6f7f9;border-left:3px solid #4a5af0;border-radius:4px;color:#333">${escapeHtml(excerpt)}</blockquote>
-<p style="margin:24px 0"><a href="${url}" style="display:inline-block;background:#4a5af0;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:500">View task</a></p>
+<p style="margin:24px 0"><a href="${escapeHtml(url)}" style="display:inline-block;background:#4a5af0;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:500">View task</a></p>
 </body></html>`;
 
   return { text, html };

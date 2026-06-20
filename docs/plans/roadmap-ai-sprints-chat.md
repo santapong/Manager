@@ -42,7 +42,9 @@ Sub-phases, all behind `AI_ENABLED`:
 - **2d — MCP connector — ◐ DEFERRED (decision 2026-06-20):** The assistant runs on **in-process tools** (2b/2c) — the chosen path per `docs/research/ai/03-mcp-and-tools.md`. The MCP connector (beta `mcp-client-2025-11-20`) needs the Manager MCP server exposed at a **public HTTPS URL** with per-workspace PAT auth; the current `packages/mcp` server is **stdio-only**, and a connector can't be exercised against localhost/preview. Revisit only for external-agent / Claude-Desktop parity once an HTTP/SSE MCP endpoint exists; the in-process tools and the MCP server can share one Zod schema source when it does.
 - **Acceptance:** set a key in Settings (stored encrypted, validated) → single-turn assist works → streaming chat → assistant creates/updates a task via a confirmed tool call, scoped to the workspace. Security sign-off (lead-audit) on the key path.
 
-## Wave 3 — Team chat
+## Wave 3 — Team chat — ☑ SHIPPED (2026-06-20, migration 0010)
+
+Channels + messages with optimistic send and realtime via the existing port (publishes to `ws:{wsId}:chat:{channelId}`, silent fallback to refresh-on-send when `ABLY_API_KEY` is unset). v1 is channels only. Follow-ups: DMs, unread counts, edit/delete.
 
 **Goal:** workspace channels + DMs, distinct from task comments.
 

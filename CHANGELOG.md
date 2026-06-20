@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+### Team chat (Wave 3, migration `0010`)
+
+- `/[workspace]/chat` — workspace **channels** (RLS-isolated, unique name per workspace) with a message room: optimistic send, author avatars, auto-scroll, `aria-live`. Distinct from task comments.
+- Realtime via the existing `RealtimeService` port — posts publish to `ws:{wsId}:chat:{channelId}` and the room subscribes through `/api/realtime/token`; **graceful fallback** to refresh-on-send when `ABLY_API_KEY` is unset. Chat added to the nav + Cmd-K palette. Follow-ups: DMs, unread counts, edit/delete.
+
 ### AI assistant — streaming chat + actions (Wave 2b/2c)
 
 - **Streaming chat** at `/[workspace]/assistant`: a Node Route Handler streams `messages.stream(...)` token-by-token; the assistant answers from **real workspace data** via read-only, RLS-scoped tools (`search_tasks`, `list_projects`, `list_tasks`, `get_project`, `list_sprints`) run server-side in a capped tool loop. The Anthropic SDK stays confined to the `@manager/ai` adapter; tool execution + tenant scoping live in the web app.

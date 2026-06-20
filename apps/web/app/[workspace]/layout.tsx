@@ -65,6 +65,9 @@ export default async function WorkspaceLayout({
               <Link href={`/${ws.slug}`} className="text-gray-600 hover:text-gray-900">
                 Projects
               </Link>
+              <Link href={`/${ws.slug}/sprints`} className="text-gray-600 hover:text-gray-900">
+                Sprints
+              </Link>
               <Link href={`/${ws.slug}/docs`} className="text-gray-600 hover:text-gray-900">
                 Docs
               </Link>

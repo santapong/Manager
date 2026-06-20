@@ -20,6 +20,10 @@ const serverSchema = z.object({
   // Realtime is optional — without a key the app runs on the no-op adapter.
   ABLY_API_KEY: z.string().optional(),
 
+  // Master key for encrypting per-workspace AI provider keys at rest
+  // (AES-256-GCM; base64 of 32 bytes). Without it the AI assistant is disabled.
+  AI_ENCRYPTION_KEY: z.string().optional(),
+
   SENTRY_DSN: z.string().url().optional(),
   SENTRY_ENVIRONMENT: z.string().optional(),
   AXIOM_TOKEN: z.string().optional(),

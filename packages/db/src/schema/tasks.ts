@@ -12,6 +12,7 @@ import {
 import { lists } from "./lists";
 import { milestones } from "./milestones";
 import { projects } from "./projects";
+import { sprints } from "./sprints";
 import { users } from "./users";
 import { workspaces } from "./workspaces";
 
@@ -29,6 +30,9 @@ export const tasks = pgTable(
       .notNull()
       .references(() => lists.id, { onDelete: "cascade" }),
     milestoneId: uuid("milestone_id").references((): AnyPgColumn => milestones.id, {
+      onDelete: "set null",
+    }),
+    sprintId: uuid("sprint_id").references((): AnyPgColumn => sprints.id, {
       onDelete: "set null",
     }),
     key: text("key").notNull(),
@@ -54,6 +58,7 @@ export const tasks = pgTable(
     byList: index("tasks_list_idx").on(table.listId, table.position),
     byWorkspaceUpdated: index("tasks_workspace_updated_idx").on(table.workspaceId, table.updatedAt),
     byMilestone: index("tasks_milestone_idx").on(table.milestoneId),
+    bySprint: index("tasks_sprint_idx").on(table.sprintId),
   }),
 );
 

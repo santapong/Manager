@@ -6,6 +6,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+### Dashboard, Pomodoro, Docs, and GitHub integration
+
+Four user-facing features on a shared data layer (migration `0007_dashboard_docs_github`: `dashboard_layouts`, `pomodoro_sessions`, `documents`, `github_connections`, `github_links` — all with workspace RLS). Repo-wide typecheck (16 packages), ESLint, unit suites, and the production build are green; DB-backed suites skip without a Postgres, as before.
+
+#### Draggable dashboard (`/[workspace]/dashboard`)
+- Per-user widget grid, rearranged by drag (dnd-kit `rectSortingStrategy`, dedicated drag handle so clicking inside a widget never starts a drag); order/visibility persisted to `dashboard_layouts` (upsert on workspace+user). Add-widget menu + per-card remove, both persisted immediately.
+- Widgets: tasks done (+ last-7-days), by status, by priority, overdue, my open tasks, completions chart (14-day, dependency-free CSS bars), and the Pomodoro timer. Stats are one grouped `count(*) filter(...)` pass + one histogram across all projects; `updatedAt` is the completion proxy (no `completedAt` column yet).
+
+#### Pomodoro
+- 25/5/15 focus/short/long timer (long break after 4 focus sessions). Countdown derived from a target timestamp so it stays accurate across re-renders and backgrounding; running state mirrored to `localStorage` (keyed by workspace). A completed focus interval inserts a `pomodoro_sessions` row (powers the dashboard "focus today" count), with a guarded WebAudio beep + Notification.
+
+#### Documents / wiki (`/[workspace]/docs`)
+- List + create + two-pane Markdown editor (textarea + live preview), dirty-tracking, delete-with-confirm. `createdBy`/`updatedBy` stamped from the session user.
+- `src/lib/markdown.tsx` — dependency-free, XSS-safe renderer: never uses `dangerouslySetInnerHTML` (all user text is React-escaped); the only user-derived attribute is link `href`, allow-listed to `http`/`https`/`mailto` with control-char/whitespace rejection to defeat scheme smuggling (`java\tscript:` etc.); external links get `rel="noopener noreferrer" target="_blank"`. Single-writer base; real-time co-editing (Yjs) deferred per PLAN §2.
+
+#### GitHub integration (`/[workspace]/settings/github`, `POST /api/webhooks/github`)
+- Connect a repo (owner/name or URL); a per-connection secret + payload URL are shown with copy buttons and setup instructions.
+- Inbound webhook (Node runtime) verifies `x-hub-signature-256` over the **raw** request body with the per-connection secret using a length-guarded `timingSafeEqual`; resolves connections by repo (owner-role lookup, RLS-bypassing like invite/session reads) and only acts on connections whose secret verifies — fails closed with 401, 202 for unconnected repos, ack on `ping`/unhandled events.
+- `pull_request` events link PRs to tasks by task key (`ABC-123` extracted from title/branch/body), upsert `github_links` (idempotent on re-delivery), and drive task status (opened/reopened/ready/synchronize → in_progress; merged → done). Pure helpers (`extractKeys`, `verifySignature`, `parsePullRequestEvent`, `mapPrToStatus`) live in `@manager/integrations`. No outbound GitHub API or stored access token yet (deliberate — keeps the flow inbound-only).
+- Wires Dashboard/Docs/GitHub into the workspace nav and the Cmd-K palette.
+
 ### Phase 1 complete — PRs 3–11 (collaboration, board, search, palette, realtime)
 
 All remaining Phase 1 PRs shipped as a stacked wave on the kickoff branch. Every feature verified end-to-end with Playwright against a local Postgres 16 (7 specs green) plus 30 Vitest cases against the real schema.

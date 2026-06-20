@@ -68,6 +68,7 @@ export function CommandPalette({
   const navItems = useMemo(() => {
     const items = [
       { label: "Dashboard", path: `/${workspaceSlug}/dashboard` },
+      { label: "Assistant", path: `/${workspaceSlug}/assistant` },
       { label: "Projects", path: `/${workspaceSlug}` },
       { label: "Sprints", path: `/${workspaceSlug}/sprints` },
       { label: "Docs", path: `/${workspaceSlug}/docs` },

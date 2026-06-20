@@ -1,24 +1,35 @@
-// Read-only tools the AI assistant may call to look up real workspace data
-// (Wave 2b, ADR 0002). Two halves live here:
+// Tools the AI assistant may call against real workspace data (Wave 2b reads,
+// Wave 2c gated writes; ADR 0002). Three halves live here:
 //
 //   1. `assistantTools()` — vendor-neutral ToolDef[] (name + description + JSON
 //      Schema) handed to the model so it knows what it can call.
-//   2. `executeAssistantTool()` — the dispatcher the streaming route runs for
-//      each `tool_use`. It is given a `Database` ALREADY scoped to the active
-//      workspace (the caller wraps it in `withWorkspace`), validates the model's
-//      input defensively, and runs the existing queries.
+//   2. `executeAssistantTool()` — the READ dispatcher. Given a `Database`
+//      ALREADY scoped to the active workspace (the caller wraps it in
+//      `withWorkspace`), it validates the model's input defensively and runs the
+//      existing queries, returning a compact JSON string.
+//   3. `runAssistantTool()` — the dispatcher the streaming route actually calls.
+//      It distinguishes reads from writes: reads delegate to
+//      `executeAssistantTool` (`{ forModel }`); WRITES are turned into
+//      *proposals* — the input is validated, the project/task is resolved by
+//      key + workspace to confirm it EXISTS, and a proposal object is returned
+//      ({ forModel, proposal }). A write tool NEVER mutates the database. The
+//      only path that writes is `applyProposalAction` after the user confirms.
 //
 // Tenancy is non-negotiable: every query is filtered by `workspaceId` and we
 // NEVER trust an id supplied by the model — we look rows up by workspace +
-// human key, never by raw uuid. Results are returned as a compact JSON string
-// and capped in row count so a chatty tool can't blow the context window.
-// READ-ONLY this wave — no create/update/delete. Writes (propose→confirm→apply)
-// land in Wave 2c.
-import { sql } from "drizzle-orm";
+// human key, never by raw uuid. Read results are capped in row count so a
+// chatty tool can't blow the context window.
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getProjectByKey, listProjects, listTasks } from "@manager/db/queries";
-import { type Database } from "@manager/db";
+import { lists, tasks as tasksTable, type Database } from "@manager/db";
 import { type ToolDef } from "@manager/ai";
+import {
+  TaskPriorityEnum,
+  TaskStatusEnum,
+  TaskTypeEnum,
+} from "@/src/lib/validators/task";
+import { type AssistantProposal } from "@/src/lib/validators/ai";
 import { listSprints } from "./sprints";
 
 /** Cap rows in any list result so tool output stays small. */
@@ -97,6 +108,75 @@ export function assistantTools(): ToolDef[] {
         additionalProperties: false,
       },
     },
+    {
+      name: "create_task",
+      description:
+        "PROPOSE creating a new task in a project. This does NOT create anything — it shows the user a confirmation card; they must click Confirm to apply it. Use it when the user asks to add/create a task. Keep the title short and the proposal minimal.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          projectKey: { type: "string", description: 'The project key, e.g. "ENG".' },
+          title: { type: "string", description: "Short task title (1–200 chars)." },
+          description: { type: "string", description: "Optional longer description." },
+          priority: {
+            type: "string",
+            enum: ["low", "medium", "high", "urgent"],
+            description: "Optional priority (defaults to medium).",
+          },
+          type: {
+            type: "string",
+            enum: ["task", "story", "bug", "epic"],
+            description: "Optional work item type (defaults to task).",
+          },
+        },
+        required: ["projectKey", "title"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "update_task",
+      description:
+        "PROPOSE editing an existing task's fields. This does NOT change anything — it shows the user a confirmation card they must Confirm. Identify the task by its key (e.g. \"ENG-12\"). Include only the fields you want to change.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          taskKey: { type: "string", description: 'The task key, e.g. "ENG-12".' },
+          title: { type: "string", description: "New title (1–200 chars)." },
+          description: { type: "string", description: "New description." },
+          priority: {
+            type: "string",
+            enum: ["low", "medium", "high", "urgent"],
+            description: "New priority.",
+          },
+          status: {
+            type: "string",
+            enum: ["open", "in_progress", "done"],
+            description: "New status.",
+          },
+          points: { type: "integer", description: "New story points (0–100)." },
+        },
+        required: ["taskKey"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "move_task",
+      description:
+        "PROPOSE moving a task to a different status column (open, in_progress, or done). This does NOT move anything — it shows the user a confirmation card they must Confirm. Identify the task by its key (e.g. \"ENG-12\").",
+      inputSchema: {
+        type: "object",
+        properties: {
+          taskKey: { type: "string", description: 'The task key, e.g. "ENG-12".' },
+          status: {
+            type: "string",
+            enum: ["open", "in_progress", "done"],
+            description: "Target status column.",
+          },
+        },
+        required: ["taskKey", "status"],
+        additionalProperties: false,
+      },
+    },
   ];
 }
 
@@ -109,6 +189,39 @@ const listTasksInput = z.object({
   status: z.enum(TASK_STATUS).optional(),
 });
 const getProjectInput = z.object({ key: z.string().trim().min(1).max(64) });
+
+// Write-tool input schemas. These mirror the task field rules (validators/task)
+// so a proposal can never carry values the normal forms would reject. The model
+// supplies a human key, never a uuid — we resolve the real row ourselves.
+const createTaskToolInput = z.object({
+  projectKey: z.string().trim().min(1).max(64),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(10_000).optional(),
+  priority: TaskPriorityEnum.optional(),
+  type: TaskTypeEnum.optional(),
+});
+const updateTaskToolInput = z
+  .object({
+    taskKey: z.string().trim().min(1).max(64),
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().max(10_000).optional(),
+    priority: TaskPriorityEnum.optional(),
+    status: TaskStatusEnum.optional(),
+    points: z.number().int().min(0).max(100).optional(),
+  })
+  .refine(
+    (i) =>
+      i.title !== undefined ||
+      i.description !== undefined ||
+      i.priority !== undefined ||
+      i.status !== undefined ||
+      i.points !== undefined,
+    { message: "at least one field to change" },
+  );
+const moveTaskToolInput = z.object({
+  taskKey: z.string().trim().min(1).max(64),
+  status: TaskStatusEnum,
+});
 
 /** Trim a Date to YYYY-MM-DD (or null) for compact, timezone-free output. */
 function day(d: Date | null): string | null {
@@ -253,6 +366,162 @@ export async function executeAssistantTool(
     default:
       return toolError(`Unknown tool "${name}".`);
   }
+}
+
+/** The three write tools — never executed against the model's read dispatcher. */
+const WRITE_TOOLS = new Set(["create_task", "update_task", "move_task"]);
+
+/** What `runAssistantTool` hands back to the route for one tool call. */
+export interface AssistantToolResult {
+  /** The string fed back to the model as this tool's result. */
+  forModel: string;
+  /** Present only for write tools: emit this to the client as a proposal card. */
+  proposal?: AssistantProposal;
+}
+
+const PROPOSED =
+  "Proposed to the user for confirmation — not yet applied. Tell the user you've prepared it and they can Confirm.";
+
+/**
+ * Dispatch one model tool call for the streaming route. `db` is RLS-scoped to
+ * `workspaceId` by the caller.
+ *
+ * READ tools behave exactly as before — `{ forModel: <compact JSON> }`.
+ * WRITE tools never mutate: the input is validated, the project/task is
+ * resolved by key + workspace to confirm it exists, and a *proposal* is
+ * returned for the user to confirm. Validation/resolution failures come back as
+ * `{ forModel: <error JSON> }` so the model can recover instead of the stream
+ * dying. Ids embedded in the proposal are re-resolved at apply time and are
+ * never trusted on their own.
+ */
+export async function runAssistantTool(
+  db: Database,
+  workspaceId: string,
+  name: string,
+  input: unknown,
+): Promise<AssistantToolResult> {
+  if (!WRITE_TOOLS.has(name)) {
+    return { forModel: await executeAssistantTool(db, workspaceId, name, input) };
+  }
+
+  switch (name) {
+    case "create_task": {
+      const parsed = createTaskToolInput.safeParse(input);
+      if (!parsed.success) {
+        return {
+          forModel: toolError(
+            "create_task expects { projectKey: string, title: string, description?, priority?, type? }.",
+          ),
+        };
+      }
+      const project = await getProjectByKey(db, workspaceId, parsed.data.projectKey);
+      if (!project) return { forModel: toolError(`No project with key "${parsed.data.projectKey}".`) };
+      // The default list is where new tasks land (createTask needs a listId).
+      const [list] = await db
+        .select({ id: lists.id })
+        .from(lists)
+        .where(and(eq(lists.workspaceId, workspaceId), eq(lists.projectId, project.id)))
+        .limit(1);
+      if (!list) return { forModel: toolError(`Project "${project.key}" has no list to add tasks to.`) };
+
+      const proposal: AssistantProposal = {
+        id: crypto.randomUUID(),
+        kind: "create_task",
+        summary: `Create task "${parsed.data.title}" in ${project.key}${
+          parsed.data.priority ? ` (priority: ${parsed.data.priority})` : ""
+        }${parsed.data.type ? ` (type: ${parsed.data.type})` : ""}.`,
+        projectKey: project.key,
+        projectId: project.id,
+        listId: list.id,
+        title: parsed.data.title,
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+        ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
+        ...(parsed.data.type !== undefined ? { type: parsed.data.type } : {}),
+      };
+      return { forModel: PROPOSED, proposal };
+    }
+
+    case "update_task": {
+      const parsed = updateTaskToolInput.safeParse(input);
+      if (!parsed.success) {
+        return {
+          forModel: toolError(
+            "update_task expects { taskKey: string } plus at least one of title, description, priority, status, points.",
+          ),
+        };
+      }
+      const task = await resolveTaskByKey(db, workspaceId, parsed.data.taskKey);
+      if (!task) return { forModel: toolError(`No task with key "${parsed.data.taskKey}".`) };
+
+      const changes: string[] = [];
+      if (parsed.data.title !== undefined) changes.push(`title → "${parsed.data.title}"`);
+      if (parsed.data.status !== undefined) changes.push(`status → ${parsed.data.status}`);
+      if (parsed.data.priority !== undefined) changes.push(`priority → ${parsed.data.priority}`);
+      if (parsed.data.points !== undefined) changes.push(`points → ${parsed.data.points}`);
+      if (parsed.data.description !== undefined) changes.push("description");
+
+      const proposal: AssistantProposal = {
+        id: crypto.randomUUID(),
+        kind: "update_task",
+        summary: `Update ${task.key}: ${changes.join(", ")}.`,
+        taskKey: task.key,
+        taskId: task.id,
+        projectId: task.projectId,
+        ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+        ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
+        ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
+        ...(parsed.data.points !== undefined ? { points: parsed.data.points } : {}),
+      };
+      return { forModel: PROPOSED, proposal };
+    }
+
+    case "move_task": {
+      const parsed = moveTaskToolInput.safeParse(input);
+      if (!parsed.success) {
+        return {
+          forModel: toolError(
+            "move_task expects { taskKey: string, status: open|in_progress|done }.",
+          ),
+        };
+      }
+      const task = await resolveTaskByKey(db, workspaceId, parsed.data.taskKey);
+      if (!task) return { forModel: toolError(`No task with key "${parsed.data.taskKey}".`) };
+
+      const proposal: AssistantProposal = {
+        id: crypto.randomUUID(),
+        kind: "move_task",
+        summary: `Move ${task.key} from ${task.status} to ${parsed.data.status}.`,
+        taskKey: task.key,
+        taskId: task.id,
+        projectId: task.projectId,
+        status: parsed.data.status,
+      };
+      return { forModel: PROPOSED, proposal };
+    }
+
+    default:
+      return { forModel: toolError(`Unknown tool "${name}".`) };
+  }
+}
+
+/**
+ * Resolve a task by workspace + human key (e.g. "ENG-12"). Returns the few
+ * columns the proposal summary needs. Like every lookup here it is scoped by
+ * `workspaceId` and keyed by the human key — never a model-supplied uuid.
+ */
+async function resolveTaskByKey(db: Database, workspaceId: string, key: string) {
+  const [row] = await db
+    .select({
+      id: tasksTable.id,
+      key: tasksTable.key,
+      projectId: tasksTable.projectId,
+      status: tasksTable.status,
+    })
+    .from(tasksTable)
+    .where(and(eq(tasksTable.workspaceId, workspaceId), eq(tasksTable.key, key)))
+    .limit(1);
+  return row;
 }
 
 function json(value: unknown): string {

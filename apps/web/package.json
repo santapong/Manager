@@ -19,6 +19,7 @@
     "@manager/auth": "workspace:^",
     "@manager/db": "workspace:^",
     "@manager/email": "workspace:^",
+    "@manager/integrations": "workspace:^",
     "@manager/observability": "workspace:^",
     "@manager/plan-ir": "workspace:^",
     "@manager/realtime": "workspace:^",

@@ -12,4 +12,8 @@ export * from "./invites";
 export * from "./comments";
 export * from "./activity";
 export * from "./notifications";
+export * from "./dashboards";
+export * from "./pomodoro";
+export * from "./documents";
+export * from "./github";
 export * from "./auth";

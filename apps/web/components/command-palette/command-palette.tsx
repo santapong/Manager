@@ -67,11 +67,14 @@ export function CommandPalette({
   const q = value.trim().toLowerCase();
   const navItems = useMemo(() => {
     const items = [
+      { label: "Dashboard", path: `/${workspaceSlug}/dashboard` },
       { label: "Projects", path: `/${workspaceSlug}` },
+      { label: "Docs", path: `/${workspaceSlug}/docs` },
       { label: "Inbox", path: `/${workspaceSlug}/inbox` },
       { label: "Search", path: `/${workspaceSlug}/search` },
       { label: "Members", path: `/${workspaceSlug}/settings/members` },
       { label: "Tags", path: `/${workspaceSlug}/settings/labels` },
+      { label: "GitHub", path: `/${workspaceSlug}/settings/github` },
       { label: "New project", path: `/${workspaceSlug}/projects/new` },
       ...projects.flatMap((p) => [
         { label: `${p.key} — ${p.name}`, path: `/${workspaceSlug}/projects/${p.key}` },

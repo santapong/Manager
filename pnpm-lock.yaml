@@ -56,6 +56,9 @@ importers:
       '@manager/email':
         specifier: workspace:^
         version: link:../../packages/email
+      '@manager/integrations':
+        specifier: workspace:^
+        version: link:../../packages/integrations
       '@manager/observability':
         specifier: workspace:^
         version: link:../../packages/observability

@@ -6,6 +6,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+### Sprints + Backlog (Wave 1) and AI assistant foundation (Wave 2a)
+
+Two workstreams built in parallel on a shared data layer (migrations `0008_sprints`, `0009_ai_keys`). Full gate green: typecheck (16 packages), ESLint, unit suites, and the production build; DB-backed suites skip without a Postgres, as before.
+
+#### Sprints + Backlog (migration `0008`)
+- `sprints` table (planned/active/completed, project-scoped) + `tasks.sprint_id` (backlog = `sprint_id IS NULL`); `activity` CHECK + type union gain `sprint_changed`.
+- `/[workspace]/sprints` list + new-sprint dialog; `/[workspace]/sprints/[sprintId]` detail with Start/Finish/Delete, a dnd-kit status board (reuses `moveTask`), and a **dependency-free CSS-bar burndown** (remaining points + ideal line; `points` × `updatedAt` completion proxy). `finishSprint` sweeps non-done tasks back to the backlog in one transaction; sprint delete returns tasks to backlog via the `set null` FK.
+- `/[workspace]/sprints/backlog` with project filter and optimistic move-to-sprint. Sprints added to the workspace nav + Cmd-K palette.
+
+#### AI assistant foundation (migration `0009`, ADR 0002)
+- New **`AIService` port** (`@manager/ai`): vendor-neutral `complete` + `validateKey`, default model `claude-opus-4-8`, Anthropic adapter using adaptive thinking + effort. The SDK is confined to the adapter file and ESLint-guarded (`no-restricted-imports`), matching the realtime/email/search ports.
+- **BYO per-workspace API key, encrypted at rest**: `workspace_ai_keys` table; AES-256-GCM via `node:crypto` (`version‖iv‖tag‖ciphertext`, master key from `AI_ENCRYPTION_KEY`); plaintext never logged or returned (only `last4` leaves the server); decrypt only at call time.
+- **Settings → AI** page: write-only key entry validated against Anthropic before save, rotate/remove, owner/admin-gated, with a "Try it" single-turn assist (summarize / draft acceptance criteria). Added to the Cmd-K palette.
+- Deliberate follow-ups (later waves per ADR 0002): task-drawer assist wiring, streaming chat, in-process tools + MCP connector, Inngest.
+
 ### Dashboard, Pomodoro, Docs, and GitHub integration
 
 Four user-facing features on a shared data layer (migration `0007_dashboard_docs_github`: `dashboard_layouts`, `pomodoro_sessions`, `documents`, `github_connections`, `github_links` — all with workspace RLS). Repo-wide typecheck (16 packages), ESLint, unit suites, and the production build are green; DB-backed suites skip without a Postgres, as before.

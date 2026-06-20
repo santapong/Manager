@@ -20,9 +20,11 @@ Migrations are sequential and separate: **0008** sprints · **0009** AI keys · 
 
 ---
 
-## Wave 1 — Sprints + Backlog (Phase 2 core)
+## Wave 1 — Sprints + Backlog (Phase 2 core) — ☑ SHIPPED
 
 **Goal:** plan work into time-boxed sprints with a backlog, start/finish a sprint, and see burndown.
+
+> Shipped 2026-06-20 (migration 0008). Sprints list + new-sprint dialog, sprint detail with Start/Finish/Delete + dnd board + CSS-bar burndown, and a backlog with move-to-sprint. Gate green. Follow-up: record `sprint_changed` activity on assign/move (type now exists).
 
 - **Schema (migration 0008, database-engineer):** `sprints` (workspace_id, project_id, name, goal, start_at, end_at, status `planned|active|completed`, created_by) + `tasks.sprint_id` (nullable FK, set null on delete) + index. Workspace RLS `*_isolation` mirroring 0007. Backlog = tasks with `sprint_id IS NULL`.
 - **Backend (backend-lead → backend-engineer):** queries `listSprints`, `createSprint`, `updateSprint`, `startSprint`, `finishSprint` (move incomplete tasks back to backlog or next sprint), `assignTaskToSprint`; Server Actions + Zod validators; activity entries (add sprint event types to the `activity` CHECK via the migration).
@@ -34,7 +36,7 @@ Migrations are sequential and separate: **0008** sprints · **0009** AI keys · 
 
 Sub-phases, all behind `AI_ENABLED`:
 
-- **2a — Foundation (tech-lead + lead-audit + backend squad):** `AIService` port + `@anthropic-ai/sdk` adapter in `packages/ai` (+ ESLint `no-restricted-imports` entry); migration **0009** `workspace_ai_keys` (RLS-isolated) ; AES-256-GCM encrypt/decrypt util (`node:crypto`, `AI_ENCRYPTION_KEY` in `env.ts`); write-only **Settings → AI** page (validate-on-save ping, last-4, rotate/remove, audit log, owner/admin gate); **single-turn assist** action (summarize a task/thread, draft acceptance criteria).
+- **2a — Foundation — ☑ SHIPPED (2026-06-20, migration 0009):** `AIService` port + `@anthropic-ai/sdk` adapter in `packages/ai` (+ ESLint guard); `workspace_ai_keys` (RLS-isolated); AES-256-GCM encrypt/decrypt (`node:crypto`, `AI_ENCRYPTION_KEY`); write-only **Settings → AI** page (validate-on-save ping, last-4, rotate/remove, owner/admin gate) with a "Try it" single-turn assist. Gate green. (Audit-log table for set/rotate/remove still to add.)
 - **2b — Streaming chat (backend-lead + frontend-lead):** Node Route Handler streaming `client.messages.stream(...)`; in-app chat panel; prompt-cache the system prefix.
 - **2c — Tool actions (backend-lead + integrations + devops):** in-process custom tools (create/update task, move status, search, summarize) with propose→confirm→apply, never trust model IDs, RLS on every call; **wire Inngest** (`JobQueue` port) for long runs.
 - **2d — MCP connector (integrations-engineer):** expose the existing `packages/mcp` tool surface to the assistant; one shared schema.

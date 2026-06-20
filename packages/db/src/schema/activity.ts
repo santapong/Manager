@@ -15,6 +15,7 @@ export const ACTIVITY_TYPES = [
   "points_changed",
   "milestone_changed",
   "comment_added",
+  "sprint_changed",
 ] as const;
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];

@@ -1,3 +1,5 @@
-// ai — landed empty in Phase 0; real exports arrive in Phase 1+
-// See docs/phase-*/README.md for the planned scope.
-export const placeholder = "ai";
+// @manager/ai — vendor-neutral AI port (ADR 0002 §1).
+// Consumers import the AIService contract and the Anthropic factory from here;
+// the vendor SDK stays inside `anthropic-adapter.ts`.
+export * from "./types";
+export { createAnthropicAIService, validateKey } from "./anthropic-adapter";

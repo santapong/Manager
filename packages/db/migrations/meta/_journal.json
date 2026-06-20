@@ -50,6 +50,34 @@
       "when": 1781395200002,
       "tag": "0006_search_tsv",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781395200003,
+      "tag": "0007_dashboard_docs_github",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781395200004,
+      "tag": "0008_sprints",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781395200005,
+      "tag": "0009_ai_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781395200006,
+      "tag": "0010_chat",
+      "breakpoints": true
     }
   ]
 }

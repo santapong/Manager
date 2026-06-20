@@ -56,8 +56,29 @@ export default async function WorkspaceLayout({
             <span className="text-sm font-semibold tracking-tight">{ws.name}</span>
             <span className="font-mono text-xs text-gray-500">/{ws.slug}</span>
             <nav aria-label="Workspace" className="ml-4 flex items-center gap-3 text-sm">
+              <Link
+                href={`/${ws.slug}/dashboard`}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href={`/${ws.slug}/assistant`}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Assistant
+              </Link>
               <Link href={`/${ws.slug}`} className="text-gray-600 hover:text-gray-900">
                 Projects
+              </Link>
+              <Link href={`/${ws.slug}/sprints`} className="text-gray-600 hover:text-gray-900">
+                Sprints
+              </Link>
+              <Link href={`/${ws.slug}/docs`} className="text-gray-600 hover:text-gray-900">
+                Docs
+              </Link>
+              <Link href={`/${ws.slug}/chat`} className="text-gray-600 hover:text-gray-900">
+                Chat
               </Link>
               <Link
                 href={`/${ws.slug}/inbox`}

@@ -6,6 +6,53 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+### Team chat (Wave 3, migration `0010`)
+
+- `/[workspace]/chat` — workspace **channels** (RLS-isolated, unique name per workspace) with a message room: optimistic send, author avatars, auto-scroll, `aria-live`. Distinct from task comments.
+- Realtime via the existing `RealtimeService` port — posts publish to `ws:{wsId}:chat:{channelId}` and the room subscribes through `/api/realtime/token`; **graceful fallback** to refresh-on-send when `ABLY_API_KEY` is unset. Chat added to the nav + Cmd-K palette. Follow-ups: DMs, unread counts, edit/delete.
+
+### AI assistant — streaming chat + actions (Wave 2b/2c)
+
+- **Streaming chat** at `/[workspace]/assistant`: a Node Route Handler streams `messages.stream(...)` token-by-token; the assistant answers from **real workspace data** via read-only, RLS-scoped tools (`search_tasks`, `list_projects`, `list_tasks`, `get_project`, `list_sprints`) run server-side in a capped tool loop. The Anthropic SDK stays confined to the `@manager/ai` adapter; tool execution + tenant scoping live in the web app.
+- **Write actions via propose → confirm → apply**: the model never mutates. Write tools (`create_task`/`update_task`/`move_task`) emit *proposals* (streamed as NDJSON) that render as Confirm/Dismiss cards; the only write path is a user-confirmed, RLS-scoped Server Action that re-resolves the task/project by key+workspace (never trusting model-supplied ids).
+- **MCP connector deferred** (decision recorded in PLAN.md): the in-process tools are the chosen, portable path; the beta connector needs a public HTTPS MCP endpoint the stdio server doesn't expose. Inngest also deferred (chat turns are bounded). Realtime fanout on assistant-applied changes and task-drawer assist wiring are noted follow-ups.
+
+### Sprints + Backlog (Wave 1) and AI assistant foundation (Wave 2a)
+
+Two workstreams built in parallel on a shared data layer (migrations `0008_sprints`, `0009_ai_keys`). Full gate green: typecheck (16 packages), ESLint, unit suites, and the production build; DB-backed suites skip without a Postgres, as before.
+
+#### Sprints + Backlog (migration `0008`)
+- `sprints` table (planned/active/completed, project-scoped) + `tasks.sprint_id` (backlog = `sprint_id IS NULL`); `activity` CHECK + type union gain `sprint_changed`.
+- `/[workspace]/sprints` list + new-sprint dialog; `/[workspace]/sprints/[sprintId]` detail with Start/Finish/Delete, a dnd-kit status board (reuses `moveTask`), and a **dependency-free CSS-bar burndown** (remaining points + ideal line; `points` × `updatedAt` completion proxy). `finishSprint` sweeps non-done tasks back to the backlog in one transaction; sprint delete returns tasks to backlog via the `set null` FK.
+- `/[workspace]/sprints/backlog` with project filter and optimistic move-to-sprint. Sprints added to the workspace nav + Cmd-K palette.
+
+#### AI assistant foundation (migration `0009`, ADR 0002)
+- New **`AIService` port** (`@manager/ai`): vendor-neutral `complete` + `validateKey`, default model `claude-opus-4-8`, Anthropic adapter using adaptive thinking + effort. The SDK is confined to the adapter file and ESLint-guarded (`no-restricted-imports`), matching the realtime/email/search ports.
+- **BYO per-workspace API key, encrypted at rest**: `workspace_ai_keys` table; AES-256-GCM via `node:crypto` (`version‖iv‖tag‖ciphertext`, master key from `AI_ENCRYPTION_KEY`); plaintext never logged or returned (only `last4` leaves the server); decrypt only at call time.
+- **Settings → AI** page: write-only key entry validated against Anthropic before save, rotate/remove, owner/admin-gated, with a "Try it" single-turn assist (summarize / draft acceptance criteria). Added to the Cmd-K palette.
+- Deliberate follow-ups (later waves per ADR 0002): task-drawer assist wiring, streaming chat, in-process tools + MCP connector, Inngest.
+
+### Dashboard, Pomodoro, Docs, and GitHub integration
+
+Four user-facing features on a shared data layer (migration `0007_dashboard_docs_github`: `dashboard_layouts`, `pomodoro_sessions`, `documents`, `github_connections`, `github_links` — all with workspace RLS). Repo-wide typecheck (16 packages), ESLint, unit suites, and the production build are green; DB-backed suites skip without a Postgres, as before.
+
+#### Draggable dashboard (`/[workspace]/dashboard`)
+- Per-user widget grid, rearranged by drag (dnd-kit `rectSortingStrategy`, dedicated drag handle so clicking inside a widget never starts a drag); order/visibility persisted to `dashboard_layouts` (upsert on workspace+user). Add-widget menu + per-card remove, both persisted immediately.
+- Widgets: tasks done (+ last-7-days), by status, by priority, overdue, my open tasks, completions chart (14-day, dependency-free CSS bars), and the Pomodoro timer. Stats are one grouped `count(*) filter(...)` pass + one histogram across all projects; `updatedAt` is the completion proxy (no `completedAt` column yet).
+
+#### Pomodoro
+- 25/5/15 focus/short/long timer (long break after 4 focus sessions). Countdown derived from a target timestamp so it stays accurate across re-renders and backgrounding; running state mirrored to `localStorage` (keyed by workspace). A completed focus interval inserts a `pomodoro_sessions` row (powers the dashboard "focus today" count), with a guarded WebAudio beep + Notification.
+
+#### Documents / wiki (`/[workspace]/docs`)
+- List + create + two-pane Markdown editor (textarea + live preview), dirty-tracking, delete-with-confirm. `createdBy`/`updatedBy` stamped from the session user.
+- `src/lib/markdown.tsx` — dependency-free, XSS-safe renderer: never uses `dangerouslySetInnerHTML` (all user text is React-escaped); the only user-derived attribute is link `href`, allow-listed to `http`/`https`/`mailto` with control-char/whitespace rejection to defeat scheme smuggling (`java\tscript:` etc.); external links get `rel="noopener noreferrer" target="_blank"`. Single-writer base; real-time co-editing (Yjs) deferred per PLAN §2.
+
+#### GitHub integration (`/[workspace]/settings/github`, `POST /api/webhooks/github`)
+- Connect a repo (owner/name or URL); a per-connection secret + payload URL are shown with copy buttons and setup instructions.
+- Inbound webhook (Node runtime) verifies `x-hub-signature-256` over the **raw** request body with the per-connection secret using a length-guarded `timingSafeEqual`; resolves connections by repo (owner-role lookup, RLS-bypassing like invite/session reads) and only acts on connections whose secret verifies — fails closed with 401, 202 for unconnected repos, ack on `ping`/unhandled events.
+- `pull_request` events link PRs to tasks by task key (`ABC-123` extracted from title/branch/body), upsert `github_links` (idempotent on re-delivery), and drive task status (opened/reopened/ready/synchronize → in_progress; merged → done). Pure helpers (`extractKeys`, `verifySignature`, `parsePullRequestEvent`, `mapPrToStatus`) live in `@manager/integrations`. No outbound GitHub API or stored access token yet (deliberate — keeps the flow inbound-only).
+- Wires Dashboard/Docs/GitHub into the workspace nav and the Cmd-K palette.
+
 ### Phase 1 complete — PRs 3–11 (collaboration, board, search, palette, realtime)
 
 All remaining Phase 1 PRs shipped as a stacked wave on the kickoff branch. Every feature verified end-to-end with Playwright against a local Postgres 16 (7 specs green) plus 30 Vitest cases against the real schema.

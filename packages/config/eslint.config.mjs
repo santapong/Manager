@@ -37,6 +37,11 @@ export default tseslint.config(
               name: "resend",
               message: "Import via @manager/email (see PLAN.md §7).",
             },
+            {
+              name: "@anthropic-ai/sdk",
+              message:
+                "Import via @manager/ai. Direct vendor imports are forbidden outside the adapter file (see PLAN.md §7 / ADR 0002).",
+            },
           ],
         },
       ],

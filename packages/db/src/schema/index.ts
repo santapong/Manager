@@ -18,4 +18,5 @@ export * from "./pomodoro";
 export * from "./documents";
 export * from "./github";
 export * from "./ai-keys";
+export * from "./chat";
 export * from "./auth";

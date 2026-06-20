@@ -72,6 +72,7 @@ export function CommandPalette({
       { label: "Projects", path: `/${workspaceSlug}` },
       { label: "Sprints", path: `/${workspaceSlug}/sprints` },
       { label: "Docs", path: `/${workspaceSlug}/docs` },
+      { label: "Chat", path: `/${workspaceSlug}/chat` },
       { label: "Inbox", path: `/${workspaceSlug}/inbox` },
       { label: "Search", path: `/${workspaceSlug}/search` },
       { label: "Members", path: `/${workspaceSlug}/settings/members` },

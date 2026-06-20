@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+### AI assistant — streaming chat + actions (Wave 2b/2c)
+
+- **Streaming chat** at `/[workspace]/assistant`: a Node Route Handler streams `messages.stream(...)` token-by-token; the assistant answers from **real workspace data** via read-only, RLS-scoped tools (`search_tasks`, `list_projects`, `list_tasks`, `get_project`, `list_sprints`) run server-side in a capped tool loop. The Anthropic SDK stays confined to the `@manager/ai` adapter; tool execution + tenant scoping live in the web app.
+- **Write actions via propose → confirm → apply**: the model never mutates. Write tools (`create_task`/`update_task`/`move_task`) emit *proposals* (streamed as NDJSON) that render as Confirm/Dismiss cards; the only write path is a user-confirmed, RLS-scoped Server Action that re-resolves the task/project by key+workspace (never trusting model-supplied ids).
+- **MCP connector deferred** (decision recorded in PLAN.md): the in-process tools are the chosen, portable path; the beta connector needs a public HTTPS MCP endpoint the stdio server doesn't expose. Inngest also deferred (chat turns are bounded). Realtime fanout on assistant-applied changes and task-drawer assist wiring are noted follow-ups.
+
 ### Sprints + Backlog (Wave 1) and AI assistant foundation (Wave 2a)
 
 Two workstreams built in parallel on a shared data layer (migrations `0008_sprints`, `0009_ai_keys`). Full gate green: typecheck (16 packages), ESLint, unit suites, and the production build; DB-backed suites skip without a Postgres, as before.

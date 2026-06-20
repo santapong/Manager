@@ -35,6 +35,46 @@ export interface CompleteResult {
 }
 
 /**
+ * A model-callable tool, vendor-neutral. `inputSchema` is a JSON Schema object
+ * ({ type: "object", properties, required }) the adapter forwards verbatim as
+ * the provider's `input_schema`. The model produces an `input` matching it; the
+ * app (never the adapter) executes the tool — see {@link StreamHandlers}.
+ */
+export interface ToolDef {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface StreamChatInput {
+  /** Per-call bearer credential — the workspace's BYO key, decrypted at call time. */
+  apiKey: string;
+  /** Defaults to {@link DEFAULT_MODEL}. */
+  model?: string;
+  /** Frozen instruction prefix. */
+  system?: string;
+  messages: AIMessage[];
+  /** Read-only tools the model may call; omit for a plain chat. */
+  tools?: ToolDef[];
+  /** Reasoning effort; defaults to "low". */
+  effort?: Effort;
+  /** Output token cap; defaults to a sensible value in the adapter. */
+  maxTokens?: number;
+}
+
+/**
+ * Callbacks the adapter drives while streaming. `onText` fires for every text
+ * delta as it arrives. `executeTool` runs a model-requested tool and resolves
+ * to the string fed back as that tool's result; it MUST enforce tenancy/RLS —
+ * the adapter trusts whatever it returns. Tool execution lives in the app so
+ * the vendor SDK never touches the database.
+ */
+export interface StreamHandlers {
+  onText(delta: string): void;
+  executeTool(name: string, input: unknown): Promise<string>;
+}
+
+/**
  * Vendor-neutral AI port. The adapter constructs a fresh client per call from
  * the supplied `apiKey` (keys are per-workspace, never global).
  */
@@ -46,4 +86,11 @@ export interface AIService {
    * can distinguish "rejected" from "couldn't reach the provider".
    */
   validateKey(apiKey: string): Promise<boolean>;
+  /**
+   * Multi-turn streaming chat with an optional read-only tool loop. Text deltas
+   * are pushed through `handlers.onText`; `tool_use` requests are dispatched to
+   * `handlers.executeTool` and their results fed back automatically until the
+   * model finishes (capped internally). Resolves with the final assembled text.
+   */
+  streamChat(input: StreamChatInput, handlers: StreamHandlers): Promise<{ text: string }>;
 }

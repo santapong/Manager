@@ -23,3 +23,22 @@ export const AssistSchema = z.object({
     .max(20_000, "That's too long — keep it under 20,000 characters."),
 });
 export type AssistInput = z.infer<typeof AssistSchema>;
+
+/**
+ * A multi-turn chat transcript posted to the streaming assistant endpoint.
+ * Only user/assistant roles cross the wire — the system prompt is fixed
+ * server-side. Bounds keep a single request well under the token budget and
+ * cap the conversation length the client may replay.
+ */
+export const ChatSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().min(1).max(20_000),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+export type ChatInput = z.infer<typeof ChatSchema>;
